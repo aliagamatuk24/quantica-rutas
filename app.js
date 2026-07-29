@@ -357,37 +357,36 @@ function obtenerUbicacion() {
 }
 
 async function construirRuta(manager) {
-  document.getElementById('rutaNombreManager').textContent = manager.nombre;
-  const pendientes = estado.clientes.filter(c =>
-    c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng
-  );
+    document.getElementById('rutaNombreManager').textContent = manager.nombre;
 
-  if (pendientes.length === 0) {
-    rutaOrdenada = [];
-    indiceClienteActual = 0;
+    // Clientes que este manager ya visito (para poder volver a revisarlos o corregirlos)
+    const completados = estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada);
+
+    const pendientes = estado.clientes.filter(c =>
+          c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng
+        );
+
+    let pendientesOrdenados = [];
+    if (pendientes.length > 0) {
+          const ubicacion = await obtenerUbicacion();
+          let punto = ubicacion || { lat: pendientes[0].lat, lng: pendientes[0].lng };
+          const restantes = [...pendientes];
+
+          while (restantes.length) {
+                  let mejorIdx = 0, mejorDist = Infinity;
+                  restantes.forEach((c, i) => {
+                            const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
+                            if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
+                  });
+                  const [elegido] = restantes.splice(mejorIdx, 1);
+                  pendientesOrdenados.push(elegido);
+                  punto = { lat: elegido.lat, lng: elegido.lng };
+          }
+    }
+
+    rutaOrdenada = [...completados, ...pendientesOrdenados];
+    indiceClienteActual = completados.length; // arranca justo en el primer pendiente
     renderClienteActual();
-    return;
-  }
-
-  const ubicacion = await obtenerUbicacion();
-  let punto = ubicacion || { lat: pendientes[0].lat, lng: pendientes[0].lng };
-  const restantes = [...pendientes];
-  const orden = [];
-
-  while (restantes.length) {
-    let mejorIdx = 0, mejorDist = Infinity;
-    restantes.forEach((c, i) => {
-      const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
-      if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
-    });
-    const [elegido] = restantes.splice(mejorIdx, 1);
-    orden.push(elegido);
-    punto = { lat: elegido.lat, lng: elegido.lng };
-  }
-
-  rutaOrdenada = orden;
-  indiceClienteActual = 0;
-  renderClienteActual();
 }
 
 // ============================================================
@@ -398,48 +397,71 @@ function totalCompletadosHoy(manager) {
 }
 
 function renderClienteActual() {
-  const manager = estado.managers.find(m => m.id === managerActivoId);
-  const totalHoy = totalCompletadosHoy(manager) + rutaOrdenada.length;
-  const completados = totalCompletadosHoy(manager);
-  document.getElementById('rutaProgreso').textContent = `${completados} de ${totalHoy} completadas`;
-  document.getElementById('barraProgreso').style.width = totalHoy ? `${(completados/totalHoy)*100}%` : '0%';
+    const manager = estado.managers.find(m => m.id === managerActivoId);
+    const totalHoy = rutaOrdenada.length;
+    const completados = totalCompletadosHoy(manager);
+    document.getElementById('rutaProgreso').textContent = `${completados} de ${totalHoy} completadas`;
+    document.getElementById('barraProgreso').style.width = totalHoy ? `${(completados/totalHoy)*100}%` : '0%';
 
-  const cont = document.getElementById('contenidoRuta');
+    const cont = document.getElementById('contenidoRuta');
+    const hayAnterior = indiceClienteActual > 0;
 
-  if (indiceClienteActual >= rutaOrdenada.length) {
-    if (!manager.jornadaFin) { manager.jornadaFin = new Date().toISOString(); guardarEstado(); }
-    cont.innerHTML = `
-      <div class="vacio">
-        <div class="vacio-emoji">🎉</div>
-        <h3>¡Terminaste tu ruta de hoy!</h3>
-        <p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>
-      </div>`;
-    return;
-  }
+    if (indiceClienteActual >= rutaOrdenada.length) {
+          if (!manager.jornadaFin) { manager.jornadaFin = new Date().toISOString(); guardarEstado(); }
+          cont.innerHTML = `
+                <div class="vacio">
+                        <div class="vacio-emoji">🎉</div>
+                                <h3>¡Terminaste tu ruta de hoy!</h3>
+                                        <p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>
+                                                ${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Ver clientes visitados</button>` : ''}
+                                                      </div>`;
+          return;
+    }
 
-  const c = rutaOrdenada[indiceClienteActual];
+    const c = rutaOrdenada[indiceClienteActual];
+    const yaCompletado = !!c.horaLlegada;
+    const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
     cont.innerHTML = `
         <div class="tarjeta-cliente">
-              <span class="numero-visita">Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}</span>
+              <span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span>
                     <div class="nombre-cliente">${c.nombre}</div>
                           <div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>
                                 ${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}
-                                
+
                                       <a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;"
                                                href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}" target="_blank">
                                                        🧭 Ir con navegación
                                                              </a>
-                                                             
+
                                                                    <div class="opciones-visita">
-                                                                           <button class="btn btn-verde" onclick="marcarEstatus('activo')">Sigue activa</button>
-                                                                                   <button class="btn btn-rojo" onclick="confirmarRetiro()">No volver</button>
-                                                                                           <button class="btn btn-ambar" onclick="mostrarFormCita()">Cita efectiva</button>
+                                                                           <button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button>
+                                                                                   <button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button>
+                                                                                           <button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button>
                                                                                                  </div>
-                                                                                                 
+
                                                                                                        <button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button>
                                                                                                              <div id="notasWrap"></div>
                                                                                                                    <div id="formCitaWrap"></div>
-                                                                                                                       </div>`;
+                                                                                                                   
+                                                                                                                         <div class="fila-2" style="margin-top:14px;">
+                                                                                                                                 ${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}
+                                                                                                                                         ${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}
+                                                                                                                                               </div>
+                                                                                                                                                   </div>`;
+}
+
+function clienteAnterior() {
+    if (indiceClienteActual > 0) {
+          indiceClienteActual--;
+          renderClienteActual();
+    }
+}
+
+function clienteSiguiente() {
+    if (indiceClienteActual < rutaOrdenada.length) {
+          indiceClienteActual++;
+          renderClienteActual();
+    }
 }
 
 function toggleNotas() {

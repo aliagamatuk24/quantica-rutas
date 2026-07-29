@@ -101,29 +101,53 @@ function validarAdmin() {
 // PANEL ADMIN
 // ============================================================
 function renderPanelAdmin() {
-  const cont = document.getElementById('listaManagers');
-  if (estado.managers.length === 0) {
-    cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavía no tienes managers. Crea el primero arriba.</div>`;
-    return;
-  }
-  cont.innerHTML = estado.managers.map(m => {
-    const clientesM = estado.clientes.filter(c => c.managerId === m.id);
-    const activos = clientesM.filter(c => c.estatus !== 'retirado').length;
-    const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-    return `
-      <div class="fila-manager">
-        <div class="fila-manager-info">
-          <span class="fila-manager-nombre">${m.nombre}</span>
-          <span class="fila-manager-meta">${activos} clientes activos</span>
-        </div>
-        <div class="fila-manager-acciones">
-          <button class="chip-link" onclick="copiarLink('${link}')">🔗 Copiar link</button>
-          <button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>
-        </div>
-      </div>`;
-  }).join('');
+    const cont = document.getElementById('listaManagers');
+    if (estado.managers.length === 0) {
+          cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavía no tienes managers. Crea el primero arriba.</div>`;
+          return;
+    }
+    cont.innerHTML = estado.managers.map(m => {
+          const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+          const activos = clientesM.filter(c => c.estatus !== 'retirado').length;
+          const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+          const citas = clientesM.filter(c => c.estatus === 'cita').length;
+          const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
+          const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
+          return `
+                <div class="fila-manager">
+                        <div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div>
+                                <div class="fila-manager-info">
+                                          <span class="fila-manager-nombre">${m.nombre}</span>
+                                                    <span class="fila-manager-meta">${activos} activos · ${pendientes} pend · ${citas} citas · ${retirados} retirados</span>
+                                                            </div>
+                                                                    <div class="fila-manager-acciones">
+                                                                              <button class="chip-link" onclick="copiarLink('${link}')">🔗 Copiar link</button>
+                                                                                        <button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>
+                                                                                                  <button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">🗑️</button>
+                                                                                                          </div>
+                                                                                                                </div>`;
+    }).join('');
 }
 
+function donaEstilo(clientes) {
+    const total = clientes.length;
+    if (total === 0) return 'background:#E8E4F5;';
+    const pendientes = clientes.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+    const citas = clientes.filter(c => c.estatus === 'cita').length;
+    const p1 = (pendientes / total) * 360;
+    const p2 = p1 + (citas / total) * 360;
+    return `background:conic-gradient(#8A8F98 0deg ${p1}deg, #FFB020 ${p1}deg ${p2}deg, #EF4444 ${p2}deg 360deg);`;
+}
+
+function vaciarCartera(managerId, nombre) {
+    const clientesM = estado.clientes.filter(c => c.managerId === managerId);
+    if (clientesM.length === 0) { alert('Ese manager ya no tiene clientes cargados.'); return; }
+    if (!confirm(`¿Seguro que quieres borrar los ${clientesM.length} clientes de "${nombre}"? Esto no se puede deshacer.`)) return;
+    if (!confirm(`Última confirmación: se van a borrar ${clientesM.length} clientes de "${nombre}" para siempre.`)) return;
+    estado.clientes = estado.clientes.filter(c => c.managerId !== managerId);
+    guardarEstado();
+    renderPanelAdmin();
+}
 function copiarLink(link) {
   navigator.clipboard.writeText(link).then(() => alert('Link copiado. Envíaselo a tu manager por WhatsApp.'));
 }
@@ -162,29 +186,27 @@ async function geocodificar(direccion) {
     } catch (e) { console.error('Geocodificacion fallo', e); }
     return null;
 }
-// Lee un archivo Excel/CSV y devuelve filas [nombre, direccion, telefono, observaciones]
+// Lee un archivo Excel/CSV y devuelve filas [nombre, direccion, ciudadEstadoZip]
 function leerExcel(archivo) {
-  return new Promise((resolve, reject) => {
-    const lector = new FileReader();
-    lector.onload = (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const hoja = wb.Sheets[wb.SheetNames[0]];
-        const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
-        // Si la primera fila parece encabezado (texto tipo "nombre"), la saltamos
-        let inicio = 0;
-        if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
-        const resultado = filas.slice(inicio)
-          .filter(f => f[0] && f[1])
-          .map(f => [String(f[0]).trim(), String(f[1]).trim(), f[2] ? String(f[2]).trim() : '', f[3] ? String(f[3]).trim() : '']);
-        resolve(resultado);
-      } catch (err) { reject(err); }
-    };
-    lector.onerror = reject;
-    lector.readAsArrayBuffer(archivo);
-  });
+    return new Promise((resolve, reject) => {
+          const lector = new FileReader();
+          lector.onload = (e) => {
+                  try {
+                            const wb = XLSX.read(e.target.result, { type: 'array' });
+                            const hoja = wb.Sheets[wb.SheetNames[0]];
+                            const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
+                            let inicio = 0;
+                            if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
+                            const resultado = filas.slice(inicio)
+                                        .filter(f => f[0] && f[1])
+                                        .map(f => [String(f[0]).trim(), String(f[1]).trim(), f[2] ? String(f[2]).trim() : '']);
+                            resolve(resultado);
+                  } catch (err) { reject(err); }
+          };
+          lector.onerror = reject;
+          lector.readAsArrayBuffer(archivo);
+    });
 }
-
 async function cargarCartera() {
     const archivo = document.getElementById('archivoCarteraExcel').files[0];
     const texto = document.getElementById('textoCartera').value.trim();
@@ -196,7 +218,10 @@ async function cargarCartera() {
           filas = await leerExcel(archivo);
     } else if (texto) {
           filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
-                  .map(linea => linea.split(',').map(p => p.trim()));
+                  .map(linea => {
+                            const partes = linea.split(',').map(p => p.trim());
+                            return [partes[0] || '', partes[1] || '', partes.slice(2).join(', ')];
+                  });
     } else {
           return;
     }
@@ -204,20 +229,22 @@ async function cargarCartera() {
     const sinUbicar = [];
   
     for (let i = 0; i < filas.length; i++) {
-          const [nombre, direccion, telefono, ...resto] = filas[i];
+          const [nombre, direccion, ciudadEstadoZip] = filas[i];
           if (!nombre || !direccion) continue;
+          const direccionCompleta = ciudadEstadoZip ? `${direccion}, ${ciudadEstadoZip}` : direccion;
           preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
-          const coords = await geocodificar(direccion);
+          const coords = await geocodificar(direccionCompleta);
           if (!coords) sinUbicar.push(nombre);
           estado.clientes.push({
                   id: uid(),
                   managerId: managerCarteraActual,
-                  nombre, direccion,
-                  telefono: telefono || '',
-                  observaciones: resto.join(', ') || '',
+                  nombre,
+                  direccion: direccionCompleta,
+                  telefono: '',
+                  observaciones: '',
                   lat: coords ? coords.lat : null,
                   lng: coords ? coords.lng : null,
-                  estatus: 'pendiente', // pendiente -> activo | cita | retirado
+                  estatus: 'pendiente',
                   citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
                   horaLlegada: null
           });
@@ -371,27 +398,58 @@ function renderClienteActual() {
   }
 
   const c = rutaOrdenada[indiceClienteActual];
-  cont.innerHTML = `
-    <div class="tarjeta-cliente">
-      <span class="numero-visita">Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}</span>
-      <div class="nombre-cliente">${c.nombre}</div>
-      <div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>
-
-      <a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;"
-         href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}" target="_blank">
-        🧭 Ir con navegación
-      </a>
-
-      <div class="opciones-visita">
-        <button class="btn btn-verde" onclick="marcarEstatus('activo')">Sigue activa</button>
-        <button class="btn btn-rojo" onclick="confirmarRetiro()">No volver</button>
-        <button class="btn btn-ambar" onclick="mostrarFormCita()">Cita efectiva</button>
-      </div>
-
-      <div id="formCitaWrap"></div>
-    </div>`;
+    cont.innerHTML = `
+        <div class="tarjeta-cliente">
+              <span class="numero-visita">Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}</span>
+                    <div class="nombre-cliente">${c.nombre}</div>
+                          <div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>
+                                ${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}
+                                
+                                      <a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;"
+                                               href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}" target="_blank">
+                                                       🧭 Ir con navegación
+                                                             </a>
+                                                             
+                                                                   <div class="opciones-visita">
+                                                                           <button class="btn btn-verde" onclick="marcarEstatus('activo')">Sigue activa</button>
+                                                                                   <button class="btn btn-rojo" onclick="confirmarRetiro()">No volver</button>
+                                                                                           <button class="btn btn-ambar" onclick="mostrarFormCita()">Cita efectiva</button>
+                                                                                                 </div>
+                                                                                                 
+                                                                                                       <button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button>
+                                                                                                             <div id="notasWrap"></div>
+                                                                                                                   <div id="formCitaWrap"></div>
+                                                                                                                       </div>`;
 }
 
+function toggleNotas() {
+    const wrap = document.getElementById('notasWrap');
+    if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+    const c = rutaOrdenada[indiceClienteActual];
+    wrap.innerHTML = `
+        <div class="form-cita">
+              <div>
+                      <label>Teléfono</label>
+                              <input type="tel" id="notaTelefono" class="input" value="${c.telefono ? c.telefono.replace(/"/g,'&quot;') : ''}" placeholder="Teléfono de contacto">
+                                    </div>
+                                          <div>
+                                                  <label>Observaciones</label>
+                                                          <textarea id="notaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas...">${c.observaciones || ''}</textarea>
+                                                                </div>
+                                                                      <button class="btn btn-violeta" onclick="guardarNotas()">Guardar nota</button>
+                                                                          </div>`;
+}
+
+async function guardarNotas() {
+    const c = rutaOrdenada[indiceClienteActual];
+    const clienteReal = estado.clientes.find(x => x.id === c.id);
+    clienteReal.telefono = document.getElementById('notaTelefono').value.trim();
+    clienteReal.observaciones = document.getElementById('notaObservaciones').value.trim();
+    c.telefono = clienteReal.telefono;
+    c.observaciones = clienteReal.observaciones;
+    await guardarEstado();
+    renderClienteActual();
+}
 function mostrarFormCita() {
   document.getElementById('formCitaWrap').innerHTML = `
     <div class="form-cita">

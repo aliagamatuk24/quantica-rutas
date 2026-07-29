@@ -91,12 +91,11 @@
   <div class="modal-caja modal-grande">
     <h3>Cargar cartera a <span id="nombreManagerCartera"></span></h3>
 
-    <p class="texto-suave"><b>Opción 1:</b> sube un Excel con columnas <b>Nombre, Dirección, Teléfono, Observaciones</b> (en ese orden, primera fila con encabezados).</p>
-    <input type="file" id="archivoCarteraExcel" class="input" accept=".xlsx,.xls,.csv">
-
-    <p class="texto-suave" style="margin-top:14px;"><b>Opción 2:</b> o pega los clientes, uno por línea, así: Nombre, Dirección, Teléfono, Observaciones</p>
-    <textarea id="textoCartera" class="textarea" placeholder="Juan Pérez, Calle 5 #123 Raleigh NC, 9195551234, cliente interesado en filtro"></textarea>
-
+    <p class="texto-suave"><b>Opción 1:</b> sube un Excel con columnas <b>Nombre, Dirección, Ciudad-Estado-Zip</b> (en ese orden, primera fila con encabezados). Teléfono y observaciones se llenan después, cuando el manager visita al cliente.</p>p>
+      <input type="file" id="archivoCarteraExcel" class="input" accept=".xlsx,.xls,.csv">
+  
+      <p class="texto-suave" style="margin-top:14px;"><b>Opción 2:</b> o pega los clientes, uno por línea, así: Nombre, Dirección, Ciudad, Estado Zip</p>p>
+      <textarea id="textoCartera" class="textarea" placeholder="Juan Pérez, 312 Willoughby Blvd, Greensboro, NC 27408"></textarea>
     <div id="previewCartera" class="preview-cartera"></div>
     <div class="modal-botones">
       <button class="btn-texto" onclick="cerrarModal('modalCartera')">Cancelar</button>

@@ -171,10 +171,24 @@ function abrirModalCartera(managerId, nombre) {
   mostrarModal('modalCartera');
 }
 
-// Convierte una direccion de texto en coordenadas (lat/lng) usando un servicio gratuito
-// Restringida a Estados Unidos y verificada por pais, para evitar que direcciones
-// incompletas o ambiguas caigan en cualquier parte del mundo.
-async function geocodificar(direccion) {
+// Convierte una direccion de texto en coordenadas (lat/lng).
+// Primero intenta con el geocodificador del Census Bureau de EE.UU. (gratis, sin limite,
+// hecho especificamente para direcciones de EE.UU.). Si no encuentra la direccion, usa
+// Nominatim como respaldo (con la pausa que exige su politica de uso).
+async function geocodificarCensus(direccion) {
+    try {
+          const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(direccion)}&benchmark=Public_AR_Current&format=json`;
+          const r = await fetch(url);
+          const data = await r.json();
+          const match = data && data.result && data.result.addressMatches && data.result.addressMatches[0];
+          if (match && match.coordinates) {
+                  return { lat: match.coordinates.y, lng: match.coordinates.x };
+          }
+    } catch (e) { console.error('Geocodificacion Census fallo', e); }
+    return null;
+}
+
+async function geocodificarNominatim(direccion) {
     try {
           const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=${PAIS_GEOCODIFICACION}&q=${encodeURIComponent(direccion)}`;
           const r = await fetch(url, { headers: { 'Accept-Language': 'es' } });
@@ -183,8 +197,15 @@ async function geocodificar(direccion) {
           if (resultado && resultado.address && resultado.address.country_code === PAIS_GEOCODIFICACION) {
                   return { lat: parseFloat(resultado.lat), lng: parseFloat(resultado.lon) };
           }
-    } catch (e) { console.error('Geocodificacion fallo', e); }
+    } catch (e) { console.error('Geocodificacion Nominatim fallo', e); }
     return null;
+}
+
+async function geocodificar(direccion) {
+    const censo = await geocodificarCensus(direccion);
+    if (censo) return censo;
+    await esperar(1100);
+    return await geocodificarNominatim(direccion);
 }
 // Lee un archivo Excel/CSV y devuelve filas [nombre, direccion, ciudadEstadoZip]
 function leerExcel(archivo) {
@@ -248,7 +269,6 @@ async function cargarCartera() {
                   citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
                   horaLlegada: null
           });
-          await esperar(1100);
     }
   
     await guardarEstado();

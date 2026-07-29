@@ -4,6 +4,7 @@
 
 const CLAVE_ADMIN = "quantica2026"; // Cámbiala luego desde el código si quieres otra clave
 const API = "/api/data";
+const PAIS_GEOCODIFICACION = "us"; // Restringe la busqueda de direcciones a Estados Unidos
 
 let estado = { managers: [], clientes: [] };
 let managerActivoId = null;   // manager que está usando la app ahora mismo
@@ -13,6 +14,8 @@ let mapaLeaflet = null;
 
 // ---------- Utilidades ----------
 function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function esperar(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 function horaAhora() {
   return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -144,17 +147,21 @@ function abrirModalCartera(managerId, nombre) {
   mostrarModal('modalCartera');
 }
 
-// Convierte una dirección de texto en coordenadas (lat/lng) usando un servicio gratuito
+// Convierte una direccion de texto en coordenadas (lat/lng) usando un servicio gratuito
+// Restringida a Estados Unidos y verificada por pais, para evitar que direcciones
+// incompletas o ambiguas caigan en cualquier parte del mundo.
 async function geocodificar(direccion) {
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(direccion)}`;
-    const r = await fetch(url, { headers: { 'Accept-Language': 'es' } });
-    const data = await r.json();
-    if (data && data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch (e) { console.error('Geocodificación falló', e); }
-  return null;
+    try {
+          const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=${PAIS_GEOCODIFICACION}&q=${encodeURIComponent(direccion)}`;
+          const r = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+          const data = await r.json();
+          const resultado = data && data[0];
+          if (resultado && resultado.address && resultado.address.country_code === PAIS_GEOCODIFICACION) {
+                  return { lat: parseFloat(resultado.lat), lng: parseFloat(resultado.lon) };
+          }
+    } catch (e) { console.error('Geocodificacion fallo', e); }
+    return null;
 }
-
 // Lee un archivo Excel/CSV y devuelve filas [nombre, direccion, telefono, observaciones]
 function leerExcel(archivo) {
   return new Promise((resolve, reject) => {
@@ -179,46 +186,56 @@ function leerExcel(archivo) {
 }
 
 async function cargarCartera() {
-  const archivo = document.getElementById('archivoCarteraExcel').files[0];
-  const texto = document.getElementById('textoCartera').value.trim();
-  const preview = document.getElementById('previewCartera');
-
-  let filas = [];
-  if (archivo) {
-    preview.textContent = 'Leyendo el Excel...';
-    filas = await leerExcel(archivo);
-  } else if (texto) {
-    filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
-      .map(linea => linea.split(',').map(p => p.trim()));
-  } else {
-    return;
-  }
-
-  preview.textContent = `Ubicando ${filas.length} direcciones en el mapa, un momento...`;
-
-  for (const fila of filas) {
-    const [nombre, direccion, telefono, ...resto] = fila;
-    if (!nombre || !direccion) continue;
-    const coords = await geocodificar(direccion);
-    estado.clientes.push({
-      id: uid(),
-      managerId: managerCarteraActual,
-      nombre, direccion,
-      telefono: telefono || '',
-      observaciones: resto.join(', ') || '',
-      lat: coords ? coords.lat : null,
-      lng: coords ? coords.lng : null,
-      estatus: 'pendiente', // pendiente -> activo | cita | retirado
-      citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
-      horaLlegada: null
-    });
-  }
-  await guardarEstado();
-  preview.textContent = `Listo, se cargaron ${filas.length} clientes.`;
-  renderPanelAdmin();
-  setTimeout(() => cerrarModal('modalCartera'), 900);
+    const archivo = document.getElementById('archivoCarteraExcel').files[0];
+    const texto = document.getElementById('textoCartera').value.trim();
+    const preview = document.getElementById('previewCartera');
+  
+    let filas = [];
+    if (archivo) {
+          preview.textContent = 'Leyendo el Excel...';
+          filas = await leerExcel(archivo);
+    } else if (texto) {
+          filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
+                  .map(linea => linea.split(',').map(p => p.trim()));
+    } else {
+          return;
+    }
+  
+    const sinUbicar = [];
+  
+    for (let i = 0; i < filas.length; i++) {
+          const [nombre, direccion, telefono, ...resto] = filas[i];
+          if (!nombre || !direccion) continue;
+          preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
+          const coords = await geocodificar(direccion);
+          if (!coords) sinUbicar.push(nombre);
+          estado.clientes.push({
+                  id: uid(),
+                  managerId: managerCarteraActual,
+                  nombre, direccion,
+                  telefono: telefono || '',
+                  observaciones: resto.join(', ') || '',
+                  lat: coords ? coords.lat : null,
+                  lng: coords ? coords.lng : null,
+                  estatus: 'pendiente', // pendiente -> activo | cita | retirado
+                  citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
+                  horaLlegada: null
+          });
+          await esperar(1100);
+    }
+  
+    await guardarEstado();
+  
+    if (sinUbicar.length > 0) {
+          preview.textContent = `Se cargaron ${filas.length} clientes. ${sinUbicar.length} no se pudieron ubicar en el mapa (revisa calle, ciudad y estado): ${sinUbicar.join(', ')}.`;
+    } else {
+          preview.textContent = `Listo, se ubicaron correctamente los ${filas.length} clientes.`;
+    }
+    renderPanelAdmin();
+    if (sinUbicar.length === 0) {
+          setTimeout(() => cerrarModal('modalCartera'), 900);
+    }
 }
-
 function exportarExcelGeneral() {
   const wb = XLSX.utils.book_new();
   const resumen = [];

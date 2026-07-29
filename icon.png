@@ -1,0 +1,36 @@
+// Guarda y lee TODOS los datos de la app (managers + clientes) usando Netlify Blobs.
+// GET  -> devuelve el estado completo guardado
+// POST -> reemplaza el estado completo con lo que mande el navegador
+const { getStore } = require('@netlify/blobs');
+
+exports.handler = async (event) => {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  const store = getStore('quantica-rutas-data');
+
+  try {
+    if (event.httpMethod === 'GET') {
+      const raw = await store.get('estado');
+      const estado = raw ? JSON.parse(raw) : { managers: [], clientes: [] };
+      return { statusCode: 200, headers, body: JSON.stringify(estado) };
+    }
+
+    if (event.httpMethod === 'POST') {
+      const nuevoEstado = JSON.parse(event.body || '{}');
+      await store.set('estado', JSON.stringify(nuevoEstado));
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+    }
+
+    return { statusCode: 405, headers, body: 'Método no permitido' };
+  } catch (err) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+  }
+};

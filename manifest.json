@@ -1,0 +1,11 @@
+{
+  "name": "Quántica Rutas",
+  "short_name": "Q. Rutas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F3FF",
+  "theme_color": "#0EA5A0",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -403,7 +403,8 @@ async function construirRuta(manager) {
           c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng
         );
 
-    let pendientesOrdenados = [];
+    const pendientesSinCoords = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && (!c.lat || !c.lng));
+  let pendientesOrdenados = [];
     if (pendientes.length > 0) {
           const ubicacion = await obtenerUbicacion();
           let punto = ubicacion || { lat: pendientes[0].lat, lng: pendientes[0].lng };
@@ -421,7 +422,7 @@ async function construirRuta(manager) {
           }
     }
 
-    rutaOrdenada = [...completados, ...pendientesOrdenados];
+    rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
     indiceClienteActual = completados.length; // arranca justo en el primer pendiente
     renderClienteActual();
 }
@@ -596,8 +597,8 @@ function irAVistaMapa() {
       attribution: '&copy; OpenStreetMap'
     }).addTo(mapaLeaflet);
 
-    const puntos = rutaOrdenada.map(c => [c.lat, c.lng]);
-    rutaOrdenada.forEach((c, i) => {
+    const conCoords = rutaOrdenada.filter(c => c.lat && c.lng); const puntos = conCoords.map(c => [c.lat, c.lng]);
+    conCoords.forEach((c, i) => {
       const icono = L.divIcon({
         className: '',
         html: `<div class="numero-pin">${i + 1}</div>`,
@@ -607,7 +608,7 @@ function irAVistaMapa() {
     });
 
     L.polyline(puntos, { color: '#7C5CFF', weight: 3, dashArray: '6 8' }).addTo(mapaLeaflet);
-    mapaLeaflet.fitBounds(puntos, { padding: [30, 30] });
+    if (puntos.length > 0) mapaLeaflet.fitBounds(puntos, { padding: [30, 30] });
   }, 50);
 }
 

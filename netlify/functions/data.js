@@ -11,7 +11,7 @@ import { getStore } from '@netlify/blobs';
 
 export default async (req) => {
       try {
-              const store = getStore('quantica-rutas-data');
+              const store = getStore('quantica-rutas-data', { consistency: 'strong' });
 
         if (req.method === 'GET') {
                   const resultado = await store.getWithMetadata('estado', { type: 'json' });

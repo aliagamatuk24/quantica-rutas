@@ -21,6 +21,8 @@ function horaAhora() {
   return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatearFechaHora(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
   document.getElementById(id).classList.add('activa');
@@ -563,7 +565,7 @@ async function marcarEstatus(tipo) {
   const c = rutaOrdenada[indiceClienteActual];
   const clienteReal = estado.clientes.find(x => x.id === c.id);
   clienteReal.estatus = tipo;
-  clienteReal.horaLlegada = horaAhora();
+  clienteReal.horaLlegada = horaAhora(); clienteReal.fechaHoraLlegada = new Date().toISOString();
 
   if (tipo === 'cita') {
     clienteReal.citaFecha = document.getElementById('citaFecha')?.value || '';

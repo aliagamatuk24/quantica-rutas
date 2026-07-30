@@ -207,7 +207,14 @@ async function geocodificar(direccion) {
     await esperar(1100);
     return await geocodificarNominatim(direccion);
 }
-// Lee un archivo Excel/CSV y devuelve filas [nombre, direccion, ciudadEstadoZip]
+function normalizarTexto(s) {
+                return String(s || '').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').trim();
+}
+
+// Lee un archivo Excel/CSV y devuelve filas [codigo, nombre, direccionCompleta].
+// Detecta automaticamente en que columna esta el Nombre y la Direccion buscando
+// esas palabras en la fila de encabezados, sin importar cuantas columnas haya antes
+// (Numero de parada, Codigo, etc.) ni en que orden vengan.
 function leerExcel(archivo) {
     return new Promise((resolve, reject) => {
           const lector = new FileReader();
@@ -216,11 +223,38 @@ function leerExcel(archivo) {
                             const wb = XLSX.read(e.target.result, { type: 'array' });
                             const hoja = wb.Sheets[wb.SheetNames[0]];
                             const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
-                            let inicio = 0;
-                            if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
-                            const resultado = filas.slice(inicio)
-                                        .filter(f => f[0] && f[1])
-                                        .map(f => [String(f[0]).trim(), String(f[1]).trim(), f[2] ? String(f[2]).trim() : '']);
+                    
+                            let colNombre = -1, colDireccion = -1, colCodigo = -1, filaInicio = 0;
+                            for (let f = 0; f < Math.min(filas.length, 5); f++) {
+                                        const fila = filas[f] || [];
+                                        const nIdx = fila.findIndex(v => normalizarTexto(v).includes('nombre'));
+                                        const dIdx = fila.findIndex(v => normalizarTexto(v).includes('direcc'));
+                                        if (nIdx !== -1 && dIdx !== -1) {
+                                                      colNombre = nIdx;
+                                                      colDireccion = dIdx;
+                                                      colCodigo = fila.findIndex(v => normalizarTexto(v).includes('codigo'));
+                                                      filaInicio = f + 1;
+                                                      break;
+                                        }
+                            }
+                    
+                            let resultado;
+                            if (colNombre !== -1) {
+                                        resultado = filas.slice(filaInicio)
+                                                      .filter(f => f[colNombre] && f[colDireccion])
+                                                      .map(f => [
+                                                                      colCodigo !== -1 && f[colCodigo] ? String(f[colCodigo]).trim() : '',
+                                                                      String(f[colNombre]).trim(),
+                                                                      String(f[colDireccion]).trim()
+                                                                    ]);
+                            } else {
+                                        // No se reconocieron encabezados: formato clasico A=nombre, B=direccion, C=ciudad/estado/zip
+                                        let inicio = 0;
+                                        if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
+                                        resultado = filas.slice(inicio)
+                                                      .filter(f => f[0] && f[1])
+                                                      .map(f => ['', String(f[0]).trim(), f[2] ? `${String(f[1]).trim()}, ${String(f[2]).trim()}` : String(f[1]).trim()]);
+                            }
                             resolve(resultado);
                   } catch (err) { reject(err); }
           };
@@ -241,7 +275,10 @@ async function cargarCartera() {
           filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
                   .map(linea => {
                             const partes = linea.split(',').map(p => p.trim());
-                            return [partes[0] || '', partes[1] || '', partes.slice(2).join(', ')];
+                            const nombre = partes[0] || '';
+                            const direccion = partes[1] || '';
+                            const resto = partes.slice(2).join(', ');
+                            return ['', nombre, resto ? `${direccion}, ${resto}` : direccion];
                   });
     } else {
           return;
@@ -250,15 +287,15 @@ async function cargarCartera() {
     const sinUbicar = [];
   
     for (let i = 0; i < filas.length; i++) {
-          const [nombre, direccion, ciudadEstadoZip] = filas[i];
-          if (!nombre || !direccion) continue;
-          const direccionCompleta = ciudadEstadoZip ? `${direccion}, ${ciudadEstadoZip}` : direccion;
+          const [codigo, nombre, direccionCompleta] = filas[i];
+          if (!nombre || !direccionCompleta) continue;
           preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
           const coords = await geocodificar(direccionCompleta);
           if (!coords) sinUbicar.push(nombre);
           estado.clientes.push({
                   id: uid(),
                   managerId: managerCarteraActual,
+                  codigo,
                   nombre,
                   direccion: direccionCompleta,
                   telefono: '',

@@ -1,3 +1,8 @@
 [build]
   functions = "netlify/functions"
   publish = "."
+
+  [[headers]]
+  for = "/app.js"
+  [headers.values]
+  Cache-Control = "no-cache, must-revalidate"

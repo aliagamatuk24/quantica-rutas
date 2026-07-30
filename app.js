@@ -11,6 +11,8 @@ let managerActivoId = null;   // manager que está usando la app ahora mismo
 let indiceClienteActual = 0;  // posición dentro de la ruta ordenada del manager
 let rutaOrdenada = [];        // lista de clientes del manager, ya en orden de visita
 let mapaLeaflet = null;
+let managerReporteId = null; // manager que se esta viendo en la pantalla "Mi reporte"
+let origenReporte = 'saludo'; // de donde se abrio el reporte: 'saludo' o 'admin'
 
 // ---------- Utilidades ----------
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -145,7 +147,7 @@ function renderPanelAdmin() {
           const citas = clientesM.filter(c => c.estatus === 'cita').length;
           const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
           const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-          return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos · ${pendientes} pend · ${citas} citas · ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">🔗 Copiar link</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">🗑️</button></div></div>`;
+              return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos - ${pendientes} pend - ${citas} citas - ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button></div></div>`;
     }).join('');
 }
 
@@ -381,6 +383,68 @@ function exportarExcelGeneral() {
   const hojaResumen = XLSX.utils.json_to_sheet(resumen);
     XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen', true);
     XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
+}function exportarExcelGeneral() {
+      const wb = XLSX.utils.book_new();
+      const resumen = [];
+      const consolidado = [];
+      const hojasPorManager = [];
+
+      estado.managers.forEach(m => {
+              const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+
+              hojasPorManager.push({
+                        nombre: m.nombre.slice(0, 28) || 'Manager',
+                        filas: clientesM.map(c => ({
+                                    Nombre: c.nombre,
+                                    Direccion: c.direccion,
+                                    Telefono: c.telefono,
+                                    Estatus: c.estatus,
+                                    'Fecha cita': c.citaFecha || '',
+                                    'Hora cita': c.citaHora || '',
+                                    'Telefono cita': c.citaTelefono || '',
+                                    'Observaciones cita': c.citaObservaciones || '',
+                                    'Hora de visita': c.horaLlegada || '',
+                                    Observaciones: c.observaciones || ''
+                        }))
+              });
+
+              resumen.push({
+                        Manager: m.nombre,
+                        'Total clientes': clientesM.length,
+                        Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente').length,
+                        'Citas efectivas': clientesM.filter(c => c.estatus === 'cita').length,
+                        Retirados: clientesM.filter(c => c.estatus === 'retirado').length
+              });
+
+              clientesM.forEach(c => {
+                        consolidado.push({
+                                    Manager: m.nombre,
+                                    Nombre: c.nombre,
+                                    Direccion: c.direccion,
+                                    Telefono: c.telefono,
+                                    Estatus: c.estatus,
+                                    'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+                                    'Fecha cita': c.citaFecha || '',
+                                    'Hora cita': c.citaHora || '',
+                                    'Telefono cita': c.citaTelefono || '',
+                                    'Observaciones cita': c.citaObservaciones || '',
+                                    Observaciones: c.observaciones || ''
+                        });
+              });
+      });
+
+      const hojaConsolidada = XLSX.utils.json_to_sheet(consolidado);
+      XLSX.utils.book_append_sheet(wb, hojaConsolidada, 'Todos los clientes');
+
+      const hojaResumen = XLSX.utils.json_to_sheet(resumen);
+      XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen');
+
+      hojasPorManager.forEach(h => {
+              const hoja = XLSX.utils.json_to_sheet(h.filas);
+              XLSX.utils.book_append_sheet(wb, hoja, h.nombre);
+      });
+
+      XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ============================================================
@@ -608,52 +672,63 @@ function volverAVistaRuta() { mostrarPantalla('pantallaRuta'); }
 // ============================================================
 // VISTA MANAGER — MI REPORTE
 // ============================================================
-function verMiReporte() {
-    const manager = estado.managers.find(m => m.id === managerActivoId);
-    document.getElementById('reporteManagerNombre').textContent = manager.nombre;
-    const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+function verMiReporte(managerId, origen) {
+      managerReporteId = managerId || managerActivoId;
+      origenReporte = origen || 'saludo';
+      const manager = estado.managers.find(m => m.id === managerReporteId);
+      if (!manager) return;
+      document.getElementById('reporteManagerNombre').textContent = manager.nombre;
+      const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
 
   const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
-    const citas = clientesM.filter(c => c.estatus === 'cita').length;
-    const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
+      const citas = clientesM.filter(c => c.estatus === 'cita').length;
+      const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
 
   document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
-    document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total · ${pendientes} pendientes · ${citas} citas · ${retirados} no volver`;
+      document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total - ${pendientes} pendientes - ${citas} citas - ${retirados} no volver`;
 
-  const etiquetas = { pendiente: '⏳ Pendiente', activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
-    const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
+  const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver' };
+      const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
 
   document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
-        const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
-        let detalleCita = '';
-        if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
-                detalleCita = ` · Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
-        }
-        return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} · ${fecha}${detalleCita}</span></div></div>`;
+          const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
+          let detalleCita = '';
+          if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
+                    detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
+          }
+          return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div></div>`;
   }).join('');
 
   mostrarPantalla('pantallaReporteManager');
 }
 
-function volverDeReporte() { mostrarPantalla('pantallaSaludo'); }
+function volverDeReporte() {
+      if (origenReporte === 'admin') {
+              renderPanelAdmin();
+              mostrarPantalla('pantallaAdmin');
+      } else {
+              mostrarPantalla('pantallaSaludo');
+      }
+}
 
 function descargarMiExcel() {
-    const manager = estado.managers.find(m => m.id === managerActivoId);
-    const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
-    const filas = clientesM.map(c => ({
-          Nombre: c.nombre,
-          Direccion: c.direccion,
-          Telefono: c.telefono,
-          Estatus: c.estatus,
-          'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
-          'Fecha cita': c.citaFecha || '',
-          'Hora cita': c.citaHora || '',
-          'Telefono cita': c.citaTelefono || '',
-          'Observaciones cita': c.citaObservaciones || '',
-          Observaciones: c.observaciones || ''
-    }));
-    const wb = XLSX.utils.book_new();
-    const hoja = XLSX.utils.json_to_sheet(filas);
-    XLSX.utils.book_append_sheet(wb, hoja, manager.nombre.slice(0, 28) || 'Mi reporte');
-    XLSX.writeFile(wb, `Mi_Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const manager = estado.managers.find(m => m.id === managerReporteId);
+      if (!manager) return;
+      const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+      const filas = clientesM.map(c => ({
+              Nombre: c.nombre,
+              Direccion: c.direccion,
+              Telefono: c.telefono,
+              Estatus: c.estatus,
+              'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+              'Fecha cita': c.citaFecha || '',
+              'Hora cita': c.citaHora || '',
+              'Telefono cita': c.citaTelefono || '',
+              'Observaciones cita': c.citaObservaciones || '',
+              Observaciones: c.observaciones || ''
+      }));
+      const wb = XLSX.utils.book_new();
+      const hoja = XLSX.utils.json_to_sheet(filas);
+      XLSX.utils.book_append_sheet(wb, hoja, manager.nombre.slice(0, 28) || 'Mi reporte');
+      XLSX.writeFile(wb, `Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }

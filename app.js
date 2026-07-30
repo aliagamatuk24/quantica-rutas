@@ -148,13 +148,7 @@ function vaciarCartera(managerId, nombre) {
     guardarEstado();
     renderPanelAdmin();
 }
-function copiarLink(link) {
-  navigator.clipboard.writeText(link).then(() => alert('Link copiado:
-' + link + '
-
-Enviaselo a tu manager por WhatsApp.')).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link));
-}
-
+function copiarLink(link) { navigator.clipboard.writeText(link).then(() => alert(`Link copiado: ${link} - enviaselo a tu manager por WhatsApp.`)).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link)); }
 function crearManager() {
   const nombre = document.getElementById('nombreNuevoManager').value.trim();
   if (!nombre) return;

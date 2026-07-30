@@ -63,6 +63,7 @@ async function guardarEstado() {
           const body = Object.assign({}, estado, { _etag: estadoEtag });
           const r = await fetch(API, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
           if (r.status === 409) return false;
+        if (!r.ok) { console.error("El servidor respondio con error al guardar", r.status); return false; }
           const data = await r.json();
           if (data.etag) estadoEtag = data.etag;
           return true;

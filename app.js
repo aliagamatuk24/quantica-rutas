@@ -466,7 +466,7 @@ function renderClienteActual() {
                                 ${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}
 
                                       <a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;"
-                                               href="https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}" target="_blank">
+                                               href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">
                                                        🧭 Ir con navegación
                                                              </a>
 

@@ -352,38 +352,6 @@ async function cargarCartera() {
 }
 
 function exportarExcelGeneral() {
-    const wb = XLSX.utils.book_new();
-    const resumen = [];
-
-  estado.managers.forEach(m => {
-        const clientesM = estado.clientes.filter(c => c.managerId === m.id);
-        const filas = clientesM.map(c => ({
-                Nombre: c.nombre,
-                Dirección: c.direccion,
-                Teléfono: c.telefono,
-                Estatus: c.estatus,
-                'Fecha cita': c.citaFecha || '',
-                'Hora cita': c.citaHora || '',
-                'Teléfono cita': c.citaTelefono || '',
-                'Observaciones cita': c.citaObservaciones || '',
-                'Hora de visita': c.horaLlegada || '',
-                Observaciones: c.observaciones || ''
-        }));
-        const hoja = XLSX.utils.json_to_sheet(filas);
-        XLSX.utils.book_append_sheet(wb, hoja, m.nombre.slice(0, 28) || 'Manager');
-        resumen.push({
-                Manager: m.nombre,
-                'Total clientes': clientesM.length,
-                Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente').length,
-                'Citas efectivas': clientesM.filter(c => c.estatus === 'cita').length,
-                Retirados: clientesM.filter(c => c.estatus === 'retirado').length
-        });
-  });
-
-  const hojaResumen = XLSX.utils.json_to_sheet(resumen);
-    XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen', true);
-    XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
-}function exportarExcelGeneral() {
       const wb = XLSX.utils.book_new();
       const resumen = [];
       const consolidado = [];
@@ -399,6 +367,7 @@ function exportarExcelGeneral() {
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
                                     Estatus: c.estatus,
+                            'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
                                     'Fecha cita': c.citaFecha || '',
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',

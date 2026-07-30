@@ -675,6 +675,8 @@ function volverDeReporte() {
       if (origenReporte === 'admin') {
               renderPanelAdmin();
               mostrarPantalla('pantallaAdmin');
+      } else if (origenReporte === 'ruta') {
+              mostrarPantalla('pantallaRuta');
       } else {
               mostrarPantalla('pantallaSaludo');
       }

@@ -3,53 +3,56 @@
 // POST -> reemplaza el estado, pero SOLO si el etag que manda el navegador coincide con el
 //         que hay guardado ahora mismo. Si no coincide, alguien mas guardo algo primero:
 //         devolvemos 409 (conflicto) en vez de pisar ese cambio en silencio.
+//
+// Nota tecnica: no usamos la opcion "onlyIfMatch" de Netlify Blobs porque en este proyecto
+// no devuelve el resultado esperado (da error 500). En su lugar comparamos el etag nosotros
+// mismos: leemos el estado actual justo antes de guardar y solo escribimos si coincide.
 import { getStore } from '@netlify/blobs';
 
 export default async (req) => {
-    try {
-          const store = getStore('quantica-rutas-data');
+      try {
+              const store = getStore('quantica-rutas-data');
 
-      if (req.method === 'GET') {
-              const resultado = await store.getWithMetadata('estado', { type: 'json' });
-              const estado = (resultado && resultado.data) || { managers: [], clientes: [] };
-              const etag = resultado ? resultado.etag : null;
-              return new Response(JSON.stringify({ ...estado, _etag: etag }), {
+        if (req.method === 'GET') {
+                  const resultado = await store.getWithMetadata('estado', { type: 'json' });
+                  const estado = (resultado && resultado.data) || { managers: [], clientes: [] };
+                  const etag = resultado ? resultado.etag : null;
+                  return new Response(JSON.stringify({ ...estado, _etag: etag }), {
+                              headers: { 'Content-Type': 'application/json' }
+                  });
+        }
+
+        if (req.method === 'POST') {
+                  const body = await req.json();
+                  const etagRecibido = body._etag || null;
+                  delete body._etag;
+
+                if (etagRecibido) {
+                            const actual = await store.getWithMetadata('estado', { type: 'json' });
+                            const etagActual = actual ? actual.etag : null;
+                            if (etagActual !== etagRecibido) {
+                                          return new Response(JSON.stringify({ ok: false, conflicto: true }), {
+                                                          status: 409,
+                                                          headers: { 'Content-Type': 'application/json' }
+                                          });
+                            }
+                }
+
+                await store.setJSON('estado', body);
+                  const nuevo = await store.getWithMetadata('estado', { type: 'json' });
+                  const nuevoEtag = nuevo ? nuevo.etag : null;
+                  return new Response(JSON.stringify({ ok: true, etag: nuevoEtag }), {
+                              headers: { 'Content-Type': 'application/json' }
+                  });
+        }
+
+        return new Response('Metodo no permitido', { status: 405 });
+      } catch (err) {
+              return new Response(JSON.stringify({ error: err.message }), {
+                        status: 500,
                         headers: { 'Content-Type': 'application/json' }
               });
       }
-
-      if (req.method === 'POST') {
-              const body = await req.json();
-              const etagRecibido = body._etag || null;
-              delete body._etag;
-
-            if (etagRecibido) {
-                      const resultado = await store.setJSON('estado', body, { onlyIfMatch: etagRecibido });
-                      if (!resultado.modified) {
-                                  return new Response(JSON.stringify({ ok: false, conflicto: true }), {
-                                                status: 409,
-                                                headers: { 'Content-Type': 'application/json' }
-                                  });
-                      }
-                      return new Response(JSON.stringify({ ok: true, etag: resultado.etag }), {
-                                  headers: { 'Content-Type': 'application/json' }
-                      });
-            }
-
-            // No mando etag (primer guardado o compatibilidad vieja): guarda sin condicion.
-            await store.setJSON('estado', body);
-              return new Response(JSON.stringify({ ok: true }), {
-                        headers: { 'Content-Type': 'application/json' }
-              });
-      }
-
-      return new Response('Metodo no permitido', { status: 405 });
-    } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), {
-                  status: 500,
-                  headers: { 'Content-Type': 'application/json' }
-          });
-    }
 };
 
 export const config = { path: '/api/data' };

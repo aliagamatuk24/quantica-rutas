@@ -612,3 +612,56 @@ function irAVistaMapa() {
 }
 
 function volverAVistaRuta() { mostrarPantalla('pantallaRuta'); }
+
+// ============================================================
+// VISTA MANAGER — MI REPORTE
+// ============================================================
+function verMiReporte() {
+    const manager = estado.managers.find(m => m.id === managerActivoId);
+    document.getElementById('reporteManagerNombre').textContent = manager.nombre;
+    const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+
+    const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+    const citas = clientesM.filter(c => c.estatus === 'cita').length;
+    const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
+
+    document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
+    document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total · ${pendientes} pendientes · ${citas} citas · ${retirados} no volver`;
+
+    const etiquetas = { pendiente: '⏳ Pendiente', activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
+    const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
+
+    document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
+          const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
+          let detalleCita = '';
+          if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
+                  detalleCita = ` · Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
+          }
+          return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} · ${fecha}${detalleCita}</span></div></div>`;
+    }).join('');
+
+    mostrarPantalla('pantallaReporteManager');
+}
+
+function volverDeReporte() { mostrarPantalla('pantallaSaludo'); }
+
+function descargarMiExcel() {
+    const manager = estado.managers.find(m => m.id === managerActivoId);
+    const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+    const filas = clientesM.map(c => ({
+          Nombre: c.nombre,
+          Direccion: c.direccion,
+          Telefono: c.telefono,
+          Estatus: c.estatus,
+          'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+          'Fecha cita': c.citaFecha || '',
+          'Hora cita': c.citaHora || '',
+          'Telefono cita': c.citaTelefono || '',
+          'Observaciones cita': c.citaObservaciones || '',
+          Observaciones: c.observaciones || ''
+    }));
+    const wb = XLSX.utils.book_new();
+    const hoja = XLSX.utils.json_to_sheet(filas);
+    XLSX.utils.book_append_sheet(wb, hoja, manager.nombre.slice(0, 28) || 'Mi reporte');
+    XLSX.writeFile(wb, `Mi_Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}

@@ -18,69 +18,98 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 function esperar(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 function horaAhora() {
-  return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatearFechaHora(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
 
 function mostrarPantalla(id) {
-  document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
-  document.getElementById(id).classList.add('activa');
+    document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+    document.getElementById(id).classList.add('activa');
 }
 
 function mostrarModal(id) { document.getElementById(id).classList.add('activo'); }
 function cerrarModal(id) { document.getElementById(id).classList.remove('activo'); }
 
 function distanciaKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 // ---------- Guardar / cargar datos del servidor ----------
+// Usamos un "etag" (huella de version) para que dos celulares guardando casi al mismo
+// tiempo no se borren los cambios uno al otro. Antes de guardar siempre volvemos a
+// traer lo mas reciente del servidor.
+let estadoEtag = null;
+
 async function cargarEstado() {
-  try {
-    const r = await fetch(API);
-    estado = await r.json();
-  } catch (e) {
-    console.error("No se pudo cargar el estado", e);
-    estado = { managers: [], clientes: [] };
-  }
+    try {
+          const r = await fetch(API, { cache: 'no-store' });
+          const data = await r.json();
+          estadoEtag = data._etag || null;
+          delete data._etag;
+          estado = data;
+    } catch (e) {
+          console.error("No se pudo cargar el estado", e);
+          estado = { managers: [], clientes: [] };
+    }
 }
 
 async function guardarEstado() {
-  try {
-    await fetch(API, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(estado) });
-  } catch (e) {
-    console.error("No se pudo guardar", e);
-  }
+    try {
+          const body = Object.assign({}, estado, { _etag: estadoEtag });
+          const r = await fetch(API, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+          if (r.status === 409) return false;
+          const data = await r.json();
+          if (data.etag) estadoEtag = data.etag;
+          return true;
+    } catch (e) {
+          console.error("No se pudo guardar", e);
+          return false;
+    }
+}
+
+// Aplica un cambio chiquito sobre los datos MAS RECIENTES del servidor y lo guarda.
+// Si otro celular o pantalla guardo algo justo antes, vuelve a traer lo nuevo y
+// reintenta el mismo cambio en vez de pisar lo que guardo el otro.
+async function actualizarEstado(cambiarFn, intentos) {
+    const maxIntentos = intentos || 4;
+    for (let i = 0; i < maxIntentos; i++) {
+          await cargarEstado();
+          await cambiarFn(estado);
+          const ok = await guardarEstado();
+          if (ok) return true;
+          await esperar(300);
+    }
+    return false;
 }
 
 // ============================================================
 // ARRANQUE
 // ============================================================
 window.addEventListener('DOMContentLoaded', async () => {
-  await cargarEstado();
-  const params = new URLSearchParams(window.location.search);
-  const managerId = params.get('manager');
+    await cargarEstado();
+    const params = new URLSearchParams(window.location.search);
+    const managerId = params.get('manager');
 
-  if (managerId) {
-    const m = estado.managers.find(x => x.id === managerId);
-    if (m) {
-      managerActivoId = managerId;
-      prepararSaludo(m);
-      mostrarPantalla('pantallaSaludo');
-      return;
-    }
-  }
-  mostrarPantalla('pantallaSelector');
+                          if (managerId) {
+                                const m = estado.managers.find(x => x.id === managerId);
+                                if (m) {
+                                        managerActivoId = managerId;
+                                        prepararSaludo(m);
+                                        mostrarPantalla('pantallaSaludo');
+                                        return;
+                                }
+                          }
+    mostrarPantalla('pantallaSelector');
 });
 
 function cerrarSesion() {
-  managerActivoId = null;
-  mostrarPantalla('pantallaSelector');
+    managerActivoId = null;
+    mostrarPantalla('pantallaSelector');
 }
 
 // ============================================================
@@ -89,14 +118,14 @@ function cerrarSesion() {
 function mostrarLoginAdmin() { mostrarPantalla('pantallaLoginAdmin'); }
 
 function validarAdmin() {
-  const clave = document.getElementById('claveAdmin').value;
-  if (clave === CLAVE_ADMIN) {
-    document.getElementById('errorAdmin').textContent = '';
-    renderPanelAdmin();
-    mostrarPantalla('pantallaAdmin');
-  } else {
-    document.getElementById('errorAdmin').textContent = 'Clave incorrecta, intenta de nuevo.';
-  }
+    const clave = document.getElementById('claveAdmin').value;
+    if (clave === CLAVE_ADMIN) {
+          document.getElementById('errorAdmin').textContent = '';
+          renderPanelAdmin();
+          mostrarPantalla('pantallaAdmin');
+    } else {
+          document.getElementById('errorAdmin').textContent = 'Clave incorrecta, intenta de nuevo.';
+    }
 }
 
 // ============================================================
@@ -115,19 +144,7 @@ function renderPanelAdmin() {
           const citas = clientesM.filter(c => c.estatus === 'cita').length;
           const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
           const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-          return `
-                <div class="fila-manager">
-                        <div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div>
-                                <div class="fila-manager-info">
-                                          <span class="fila-manager-nombre">${m.nombre}</span>
-                                                    <span class="fila-manager-meta">${activos} activos · ${pendientes} pend · ${citas} citas · ${retirados} retirados</span>
-                                                            </div>
-                                                                    <div class="fila-manager-acciones">
-                                                                              <button class="chip-link" onclick="copiarLink('${link}')">🔗 Copiar link</button>
-                                                                                        <button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>
-                                                                                                  <button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">🗑️</button>
-                                                                                                          </div>
-                                                                                                                </div>`;
+          return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos · ${pendientes} pend · ${citas} citas · ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">🔗 Copiar link</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">🗑️</button></div></div>`;
     }).join('');
 }
 
@@ -141,33 +158,40 @@ function donaEstilo(clientes) {
     return `background:conic-gradient(#8A8F98 0deg ${p1}deg, #FFB020 ${p1}deg ${p2}deg, #EF4444 ${p2}deg 360deg);`;
 }
 
-function vaciarCartera(managerId, nombre) {
+async function vaciarCartera(managerId, nombre) {
     const clientesM = estado.clientes.filter(c => c.managerId === managerId);
     if (clientesM.length === 0) { alert('Ese manager ya no tiene clientes cargados.'); return; }
     if (!confirm(`¿Seguro que quieres borrar los ${clientesM.length} clientes de "${nombre}"? Esto no se puede deshacer.`)) return;
     if (!confirm(`Última confirmación: se van a borrar ${clientesM.length} clientes de "${nombre}" para siempre.`)) return;
-    estado.clientes = estado.clientes.filter(c => c.managerId !== managerId);
-    guardarEstado();
+    const ok = await actualizarEstado((est) => {
+          est.clientes = est.clientes.filter(c => c.managerId !== managerId);
+    });
+    if (!ok) alert('No se pudo borrar, intenta de nuevo.');
     renderPanelAdmin();
 }
+
 function copiarLink(link) { navigator.clipboard.writeText(link).then(() => alert(`Link copiado: ${link} - enviaselo a tu manager por WhatsApp.`)).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link)); }
-function crearManager() {
-  const nombre = document.getElementById('nombreNuevoManager').value.trim();
-  if (!nombre) return;
-  estado.managers.push({ id: uid(), nombre, activo: true, jornadaInicio: null, jornadaFin: null });
-  document.getElementById('nombreNuevoManager').value = '';
-  cerrarModal('modalNuevoManager');
-  guardarEstado();
-  renderPanelAdmin();
+
+async function crearManager() {
+    const nombre = document.getElementById('nombreNuevoManager').value.trim();
+    if (!nombre) return;
+    const nuevoId = uid();
+    const ok = await actualizarEstado((est) => {
+          est.managers.push({ id: nuevoId, nombre, activo: true, jornadaInicio: null, jornadaFin: null });
+    });
+    document.getElementById('nombreNuevoManager').value = '';
+    cerrarModal('modalNuevoManager');
+    if (!ok) alert('No se pudo guardar el nuevo manager, revisa tu conexion e intenta de nuevo.');
+    renderPanelAdmin();
 }
 
 let managerCarteraActual = null;
 function abrirModalCartera(managerId, nombre) {
-  managerCarteraActual = managerId;
-  document.getElementById('nombreManagerCartera').textContent = nombre;
-  document.getElementById('textoCartera').value = '';
-  document.getElementById('previewCartera').textContent = '';
-  mostrarModal('modalCartera');
+    managerCarteraActual = managerId;
+    document.getElementById('nombreManagerCartera').textContent = nombre;
+    document.getElementById('textoCartera').value = '';
+    document.getElementById('previewCartera').textContent = '';
+    mostrarModal('modalCartera');
 }
 
 // Convierte una direccion de texto en coordenadas (lat/lng).
@@ -206,8 +230,9 @@ async function geocodificar(direccion) {
     await esperar(1100);
     return await geocodificarNominatim(direccion);
 }
+
 function normalizarTexto(s) {
-                return String(s || '').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').trim();
+    return String(s || '').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').trim();
 }
 
 // Lee un archivo Excel/CSV y devuelve filas [codigo, nombre, direccionCompleta].
@@ -222,8 +247,8 @@ function leerExcel(archivo) {
                             const wb = XLSX.read(e.target.result, { type: 'array' });
                             const hoja = wb.Sheets[wb.SheetNames[0]];
                             const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
-                    
-                            let colNombre = -1, colDireccion = -1, colCodigo = -1, filaInicio = 0;
+
+                    let colNombre = -1, colDireccion = -1, colCodigo = -1, filaInicio = 0;
                             for (let f = 0; f < Math.min(filas.length, 5); f++) {
                                         const fila = filas[f] || [];
                                         const nIdx = fila.findIndex(v => normalizarTexto(v).includes('nombre'));
@@ -236,23 +261,22 @@ function leerExcel(archivo) {
                                                       break;
                                         }
                             }
-                    
-                            let resultado;
+
+                    let resultado;
                             if (colNombre !== -1) {
                                         resultado = filas.slice(filaInicio)
-                                                      .filter(f => f[colNombre] && f[colDireccion])
-                                                      .map(f => [
-                                                                      colCodigo !== -1 && f[colCodigo] ? String(f[colCodigo]).trim() : '',
-                                                                      String(f[colNombre]).trim(),
-                                                                      String(f[colDireccion]).trim()
-                                                                    ]);
+                                          .filter(f => f[colNombre] && f[colDireccion])
+                                          .map(f => [
+                                                          colCodigo !== -1 && f[colCodigo] ? String(f[colCodigo]).trim() : '',
+                                                          String(f[colNombre]).trim(),
+                                                          String(f[colDireccion]).trim()
+                                                        ]);
                             } else {
-                                        // No se reconocieron encabezados: formato clasico A=nombre, B=direccion, C=ciudad/estado/zip
                                         let inicio = 0;
                                         if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
                                         resultado = filas.slice(inicio)
-                                                      .filter(f => f[0] && f[1])
-                                                      .map(f => ['', String(f[0]).trim(), f[2] ? `${String(f[1]).trim()}, ${String(f[2]).trim()}` : String(f[1]).trim()]);
+                                          .filter(f => f[0] && f[1])
+                                          .map(f => ['', String(f[0]).trim(), f[2] ? `${String(f[1]).trim()}, ${String(f[2]).trim()}` : String(f[1]).trim()]);
                             }
                             resolve(resultado);
                   } catch (err) { reject(err); }
@@ -261,119 +285,129 @@ function leerExcel(archivo) {
           lector.readAsArrayBuffer(archivo);
     });
 }
+
 async function cargarCartera() {
     const archivo = document.getElementById('archivoCarteraExcel').files[0];
     const texto = document.getElementById('textoCartera').value.trim();
     const preview = document.getElementById('previewCartera');
-  
-    let filas = [];
+
+  let filas = [];
     if (archivo) {
           preview.textContent = 'Leyendo el Excel...';
           filas = await leerExcel(archivo);
     } else if (texto) {
           filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
-                  .map(linea => {
-                            const partes = linea.split(',').map(p => p.trim());
-                            const nombre = partes[0] || '';
-                            const direccion = partes[1] || '';
-                            const resto = partes.slice(2).join(', ');
-                            return ['', nombre, resto ? `${direccion}, ${resto}` : direccion];
-                  });
+            .map(linea => {
+                      const partes = linea.split(',').map(p => p.trim());
+                      const nombre = partes[0] || '';
+                      const direccion = partes[1] || '';
+                      const resto = partes.slice(2).join(', ');
+                      return ['', nombre, resto ? `${direccion}, ${resto}` : direccion];
+            });
     } else {
           return;
     }
-  
-    const sinUbicar = [];
-  
-    for (let i = 0; i < filas.length; i++) {
-          const [codigo, nombre, direccionCompleta] = filas[i];
-          if (!nombre || !direccionCompleta) continue;
-          preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
-          const coords = await geocodificar(direccionCompleta);
-          if (!coords) sinUbicar.push(nombre);
-          estado.clientes.push({
-                  id: uid(),
-                  managerId: managerCarteraActual,
-                  codigo,
-                  nombre,
-                  direccion: direccionCompleta,
-                  telefono: '',
-                  observaciones: '',
-                  lat: coords ? coords.lat : null,
-                  lng: coords ? coords.lng : null,
-                  estatus: 'pendiente',
-                  citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
-                  horaLlegada: null
-          });
-    }
-  
-    await guardarEstado();
-  
-    if (sinUbicar.length > 0) {
-          preview.textContent = `Se cargaron ${filas.length} clientes. ${sinUbicar.length} no se pudieron ubicar en el mapa (revisa calle, ciudad y estado): ${sinUbicar.join(', ')}.`;
-    } else {
-          preview.textContent = `Listo, se ubicaron correctamente los ${filas.length} clientes.`;
-    }
+
+  const sinUbicar = [];
+    const nuevosClientes = [];
+
+  for (let i = 0; i < filas.length; i++) {
+        const [codigo, nombre, direccionCompleta] = filas[i];
+        if (!nombre || !direccionCompleta) continue;
+        preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
+        const coords = await geocodificar(direccionCompleta);
+        if (!coords) sinUbicar.push(nombre);
+        nuevosClientes.push({
+                id: uid(),
+                managerId: managerCarteraActual,
+                codigo,
+                nombre,
+                direccion: direccionCompleta,
+                telefono: '',
+                observaciones: '',
+                lat: coords ? coords.lat : null,
+                lng: coords ? coords.lng : null,
+                estatus: 'pendiente',
+                citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
+                horaLlegada: null
+        });
+  }
+
+  await actualizarEstado((est) => {
+        nuevosClientes.forEach(c => est.clientes.push(c));
+  });
+
+  if (sinUbicar.length > 0) {
+        preview.textContent = `Se cargaron ${filas.length} clientes. ${sinUbicar.length} no se pudieron ubicar en el mapa (revisa calle, ciudad y estado): ${sinUbicar.join(', ')}.`;
+  } else {
+        preview.textContent = `Listo, se ubicaron correctamente los ${filas.length} clientes.`;
+  }
     renderPanelAdmin();
     if (sinUbicar.length === 0) {
           setTimeout(() => cerrarModal('modalCartera'), 900);
     }
 }
+
 function exportarExcelGeneral() {
-  const wb = XLSX.utils.book_new();
-  const resumen = [];
+    const wb = XLSX.utils.book_new();
+    const resumen = [];
 
   estado.managers.forEach(m => {
-    const clientesM = estado.clientes.filter(c => c.managerId === m.id);
-    const filas = clientesM.map(c => ({
-      Nombre: c.nombre,
-      Dirección: c.direccion,
-      Teléfono: c.telefono,
-      Estatus: c.estatus,
-      'Fecha cita': c.citaFecha || '',
-      'Hora cita': c.citaHora || '',
-      'Teléfono cita': c.citaTelefono || '',
-      'Observaciones cita': c.citaObservaciones || '',
-      'Hora de visita': c.horaLlegada || '',
-      Observaciones: c.observaciones || ''
-    }));
-    const hoja = XLSX.utils.json_to_sheet(filas);
-    XLSX.utils.book_append_sheet(wb, hoja, m.nombre.slice(0, 28) || 'Manager');
-    resumen.push({
-      Manager: m.nombre,
-      'Total clientes': clientesM.length,
-      Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente').length,
-      'Citas efectivas': clientesM.filter(c => c.estatus === 'cita').length,
-      Retirados: clientesM.filter(c => c.estatus === 'retirado').length
-    });
+        const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+        const filas = clientesM.map(c => ({
+                Nombre: c.nombre,
+                Dirección: c.direccion,
+                Teléfono: c.telefono,
+                Estatus: c.estatus,
+                'Fecha cita': c.citaFecha || '',
+                'Hora cita': c.citaHora || '',
+                'Teléfono cita': c.citaTelefono || '',
+                'Observaciones cita': c.citaObservaciones || '',
+                'Hora de visita': c.horaLlegada || '',
+                Observaciones: c.observaciones || ''
+        }));
+        const hoja = XLSX.utils.json_to_sheet(filas);
+        XLSX.utils.book_append_sheet(wb, hoja, m.nombre.slice(0, 28) || 'Manager');
+        resumen.push({
+                Manager: m.nombre,
+                'Total clientes': clientesM.length,
+                Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente').length,
+                'Citas efectivas': clientesM.filter(c => c.estatus === 'cita').length,
+                Retirados: clientesM.filter(c => c.estatus === 'retirado').length
+        });
   });
 
   const hojaResumen = XLSX.utils.json_to_sheet(resumen);
-  XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen', true);
-  XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen', true);
+    XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ============================================================
 // VISTA MANAGER — SALUDO
 // ============================================================
 function prepararSaludo(manager) {
-  document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
-  const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
-  document.getElementById('saludoResumen').textContent =
-    pendientes.length > 0
-      ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
-      : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
+    document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
+    const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
+    document.getElementById('saludoResumen').textContent =
+          pendientes.length > 0
+        ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
+            : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
 }
 
 async function iniciarJornada() {
-  const manager = estado.managers.find(m => m.id === managerActivoId);
-  if (!manager.jornadaInicio || huboVisitaAyer(manager)) {
-    manager.jornadaInicio = new Date().toISOString();
-    manager.jornadaFin = null;
-    await guardarEstado();
-  }
-  await construirRuta(manager);
-  mostrarPantalla('pantallaRuta');
+    let manager = estado.managers.find(m => m.id === managerActivoId);
+    if (!manager.jornadaInicio || huboVisitaAyer(manager)) {
+          await actualizarEstado((est) => {
+                  const m = est.managers.find(x => x.id === managerActivoId);
+                  if (m && (!m.jornadaInicio || huboVisitaAyer(m))) {
+                            m.jornadaInicio = new Date().toISOString();
+                            m.jornadaFin = null;
+                  }
+          });
+          manager = estado.managers.find(m => m.id === managerActivoId);
+    }
+    await construirRuta(manager);
+    mostrarPantalla('pantallaRuta');
 }
 
 function huboVisitaAyer() { return false; } // simplificado para Fase 1
@@ -382,47 +416,46 @@ function huboVisitaAyer() { return false; } // simplificado para Fase 1
 // CONSTRUIR RUTA (ordenar clientes por cercanía)
 // ============================================================
 function obtenerUbicacion() {
-  return new Promise(resolve => {
-    if (!navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { timeout: 5000 }
-    );
-  });
+    return new Promise(resolve => {
+          if (!navigator.geolocation) return resolve(null);
+          navigator.geolocation.getCurrentPosition(
+                  pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                  () => resolve(null),
+            { timeout: 5000 }
+                );
+    });
 }
 
 async function construirRuta(manager) {
     document.getElementById('rutaNombreManager').textContent = manager.nombre;
 
-    // Clientes que este manager ya visito (para poder volver a revisarlos o corregirlos)
-    const completados = estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada);
+  const completados = estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada);
 
-    const pendientes = estado.clientes.filter(c =>
-          c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng
-        );
+  const pendientes = estado.clientes.filter(c =>
+        c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng
+                                              );
 
-    const pendientesSinCoords = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && (!c.lat || !c.lng));
-  let pendientesOrdenados = [];
+  const pendientesSinCoords = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && (!c.lat || !c.lng));
+    let pendientesOrdenados = [];
     if (pendientes.length > 0) {
           const ubicacion = await obtenerUbicacion();
           let punto = ubicacion || { lat: pendientes[0].lat, lng: pendientes[0].lng };
           const restantes = [...pendientes];
 
-          while (restantes.length) {
-                  let mejorIdx = 0, mejorDist = Infinity;
-                  restantes.forEach((c, i) => {
-                            const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
-                            if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
-                  });
-                  const [elegido] = restantes.splice(mejorIdx, 1);
-                  pendientesOrdenados.push(elegido);
-                  punto = { lat: elegido.lat, lng: elegido.lng };
-          }
+      while (restantes.length) {
+              let mejorIdx = 0, mejorDist = Infinity;
+              restantes.forEach((c, i) => {
+                        const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
+                        if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
+              });
+              const [elegido] = restantes.splice(mejorIdx, 1);
+              pendientesOrdenados.push(elegido);
+              punto = { lat: elegido.lat, lng: elegido.lng };
+      }
     }
 
-    rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
-    indiceClienteActual = completados.length; // arranca justo en el primer pendiente
+  rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
+    indiceClienteActual = completados.length;
     renderClienteActual();
 }
 
@@ -430,7 +463,7 @@ async function construirRuta(manager) {
 // VISTA MANAGER — CLIENTE ACTUAL
 // ============================================================
 function totalCompletadosHoy(manager) {
-  return estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada).length;
+    return estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada).length;
 }
 
 function renderClienteActual() {
@@ -440,51 +473,25 @@ function renderClienteActual() {
     document.getElementById('rutaProgreso').textContent = `${completados} de ${totalHoy} completadas`;
     document.getElementById('barraProgreso').style.width = totalHoy ? `${(completados/totalHoy)*100}%` : '0%';
 
-    const cont = document.getElementById('contenidoRuta');
+  const cont = document.getElementById('contenidoRuta');
     const hayAnterior = indiceClienteActual > 0;
 
-    if (indiceClienteActual >= rutaOrdenada.length) {
-          if (!manager.jornadaFin) { manager.jornadaFin = new Date().toISOString(); guardarEstado(); }
-          cont.innerHTML = `
-                <div class="vacio">
-                        <div class="vacio-emoji">🎉</div>
-                                <h3>¡Terminaste tu ruta de hoy!</h3>
-                                        <p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>
-                                                ${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Ver clientes visitados</button>` : ''}
-                                                      </div>`;
-          return;
-    }
+  if (indiceClienteActual >= rutaOrdenada.length) {
+        if (!manager.jornadaFin) {
+                manager.jornadaFin = new Date().toISOString();
+                actualizarEstado((est) => {
+                          const m = est.managers.find(x => x.id === manager.id);
+                          if (m && !m.jornadaFin) m.jornadaFin = new Date().toISOString();
+                });
+        }
+        cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🎉</div><h3>¡Terminaste tu ruta de hoy!</h3><p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Ver clientes visitados</button>` : ''}</div>`;
+        return;
+  }
 
-    const c = rutaOrdenada[indiceClienteActual];
+  const c = rutaOrdenada[indiceClienteActual];
     const yaCompletado = !!c.horaLlegada;
     const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
-    cont.innerHTML = `
-        <div class="tarjeta-cliente">
-              <span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span>
-                    <div class="nombre-cliente">${c.nombre}</div>
-                          <div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>
-                                ${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}
-
-                                      <a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;"
-                                               href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">
-                                                       🧭 Ir con navegación
-                                                             </a>
-
-                                                                   <div class="opciones-visita">
-                                                                           <button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button>
-                                                                                   <button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button>
-                                                                                           <button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button>
-                                                                                                 </div>
-
-                                                                                                       <button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button>
-                                                                                                             <div id="notasWrap"></div>
-                                                                                                                   <div id="formCitaWrap"></div>
-                                                                                                                   
-                                                                                                                         <div class="fila-2" style="margin-top:14px;">
-                                                                                                                                 ${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}
-                                                                                                                                         ${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}
-                                                                                                                                               </div>
-                                                                                                                                                   </div>`;
+    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div><div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
 }
 
 function clienteAnterior() {
@@ -505,109 +512,93 @@ function toggleNotas() {
     const wrap = document.getElementById('notasWrap');
     if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
     const c = rutaOrdenada[indiceClienteActual];
-    wrap.innerHTML = `
-        <div class="form-cita">
-              <div>
-                      <label>Teléfono</label>
-                              <input type="tel" id="notaTelefono" class="input" value="${c.telefono ? c.telefono.replace(/"/g,'&quot;') : ''}" placeholder="Teléfono de contacto">
-                                    </div>
-                                          <div>
-                                                  <label>Observaciones</label>
-                                                          <textarea id="notaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas...">${c.observaciones || ''}</textarea>
-                                                                </div>
-                                                                      <button class="btn btn-violeta" onclick="guardarNotas()">Guardar nota</button>
-                                                                          </div>`;
+    wrap.innerHTML = `<div class="form-cita"><div><label>Teléfono</label><input type="tel" id="notaTelefono" class="input" value="${c.telefono ? c.telefono.replace(/"/g,'&quot;') : ''}" placeholder="Teléfono de contacto"></div><div><label>Observaciones</label><textarea id="notaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas...">${c.observaciones || ''}</textarea></div><button class="btn btn-violeta" onclick="guardarNotas()">Guardar nota</button></div>`;
 }
 
 async function guardarNotas() {
     const c = rutaOrdenada[indiceClienteActual];
-    const clienteReal = estado.clientes.find(x => x.id === c.id);
-    clienteReal.telefono = document.getElementById('notaTelefono').value.trim();
-    clienteReal.observaciones = document.getElementById('notaObservaciones').value.trim();
-    c.telefono = clienteReal.telefono;
-    c.observaciones = clienteReal.observaciones;
-    await guardarEstado();
+    const telefono = document.getElementById('notaTelefono').value.trim();
+    const observaciones = document.getElementById('notaObservaciones').value.trim();
+    await actualizarEstado((est) => {
+          const clienteReal = est.clientes.find(x => x.id === c.id);
+          clienteReal.telefono = telefono;
+          clienteReal.observaciones = observaciones;
+    });
+    const actualizado = estado.clientes.find(x => x.id === c.id);
+    const idx = rutaOrdenada.findIndex(x => x.id === c.id);
+    if (idx !== -1) rutaOrdenada[idx] = actualizado;
     renderClienteActual();
 }
+
 function mostrarFormCita() {
-  document.getElementById('formCitaWrap').innerHTML = `
-    <div class="form-cita">
-      <div class="fila-2">
-        <div>
-          <label>Día</label>
-          <input type="date" id="citaFecha" class="input">
-        </div>
-        <div>
-          <label>Hora</label>
-          <input type="time" id="citaHora" class="input">
-        </div>
-      </div>
-      <div>
-        <label>Teléfono</label>
-        <input type="tel" id="citaTelefono" class="input" placeholder="Teléfono de contacto">
-      </div>
-      <div>
-        <label>Observaciones</label>
-        <textarea id="citaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas de la cita..."></textarea>
-      </div>
-      <button class="btn btn-ambar" onclick="marcarEstatus('cita')">Guardar cita y completar</button>
-    </div>`;
+    document.getElementById('formCitaWrap').innerHTML = `<div class="form-cita"><div class="fila-2"><div><label>Día</label><input type="date" id="citaFecha" class="input"></div><div><label>Hora</label><input type="time" id="citaHora" class="input"></div></div><div><label>Teléfono</label><input type="tel" id="citaTelefono" class="input" placeholder="Teléfono de contacto"></div><div><label>Observaciones</label><textarea id="citaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas de la cita..."></textarea></div><button class="btn btn-ambar" onclick="marcarEstatus('cita')">Guardar cita y completar</button></div>`;
 }
 
 function confirmarRetiro() {
-  const c = rutaOrdenada[indiceClienteActual];
-  if (confirm(`¿Seguro que quieres marcar a "${c.nombre}" como no volver / retirado?`)) {
-    marcarEstatus('retirado');
-  }
+    const c = rutaOrdenada[indiceClienteActual];
+    if (confirm(`¿Seguro que quieres marcar a "${c.nombre}" como no volver / retirado?`)) {
+          marcarEstatus('retirado');
+    }
 }
 
 async function marcarEstatus(tipo) {
-  const c = rutaOrdenada[indiceClienteActual];
-  const clienteReal = estado.clientes.find(x => x.id === c.id);
-  clienteReal.estatus = tipo;
-  clienteReal.horaLlegada = horaAhora(); clienteReal.fechaHoraLlegada = new Date().toISOString();
+    const c = rutaOrdenada[indiceClienteActual];
+    const horaTexto = horaAhora();
+    const fechaISO = new Date().toISOString();
+    const citaFecha = tipo === 'cita' ? (document.getElementById('citaFecha')?.value || '') : undefined;
+    const citaHora = tipo === 'cita' ? (document.getElementById('citaHora')?.value || '') : undefined;
+    const citaTelefono = tipo === 'cita' ? (document.getElementById('citaTelefono')?.value || '') : undefined;
+    const citaObservaciones = tipo === 'cita' ? (document.getElementById('citaObservaciones')?.value || '') : undefined;
 
-  if (tipo === 'cita') {
-    clienteReal.citaFecha = document.getElementById('citaFecha')?.value || '';
-    clienteReal.citaHora = document.getElementById('citaHora')?.value || '';
-    clienteReal.citaTelefono = document.getElementById('citaTelefono')?.value || '';
-    clienteReal.citaObservaciones = document.getElementById('citaObservaciones')?.value || '';
-  }
+  await actualizarEstado((est) => {
+        const clienteReal = est.clientes.find(x => x.id === c.id);
+        clienteReal.estatus = tipo;
+        clienteReal.horaLlegada = horaTexto;
+        clienteReal.fechaHoraLlegada = fechaISO;
+        if (tipo === 'cita') {
+                clienteReal.citaFecha = citaFecha;
+                clienteReal.citaHora = citaHora;
+                clienteReal.citaTelefono = citaTelefono;
+                clienteReal.citaObservaciones = citaObservaciones;
+        }
+  });
 
-  await guardarEstado();
-  indiceClienteActual++;
-  renderClienteActual();
+  const actualizado = estado.clientes.find(x => x.id === c.id);
+    const idx = rutaOrdenada.findIndex(x => x.id === c.id);
+    if (idx !== -1) rutaOrdenada[idx] = actualizado;
+    indiceClienteActual++;
+    renderClienteActual();
 }
 
 // ============================================================
 // VISTA MANAGER — MAPA COMPLETO
 // ============================================================
 function irAVistaMapa() {
-  mostrarPantalla('pantallaMapaCompleto');
-  document.getElementById('mapaResumen').textContent =
-    `${rutaOrdenada.length} paradas pendientes en tu recorrido`;
+    mostrarPantalla('pantallaMapaCompleto');
+    document.getElementById('mapaResumen').textContent =
+          `${rutaOrdenada.length} paradas pendientes en tu recorrido`;
 
   setTimeout(() => {
-    if (mapaLeaflet) { mapaLeaflet.remove(); mapaLeaflet = null; }
-    if (rutaOrdenada.length === 0) return;
+        if (mapaLeaflet) { mapaLeaflet.remove(); mapaLeaflet = null; }
+        if (rutaOrdenada.length === 0) return;
 
-    mapaLeaflet = L.map('mapaGrande');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(mapaLeaflet);
+                 mapaLeaflet = L.map('mapaGrande');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+        }).addTo(mapaLeaflet);
 
-    const conCoords = rutaOrdenada.filter(c => c.lat && c.lng); const puntos = conCoords.map(c => [c.lat, c.lng]);
-    conCoords.forEach((c, i) => {
-      const icono = L.divIcon({
-        className: '',
-        html: `<div class="numero-pin">${i + 1}</div>`,
-        iconSize: [30, 30]
-      });
-      L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b><br>${c.direccion}`);
-    });
+                 const conCoords = rutaOrdenada.filter(c => c.lat && c.lng); const puntos = conCoords.map(c => [c.lat, c.lng]);
+        conCoords.forEach((c, i) => {
+                const icono = L.divIcon({
+                          className: '',
+                          html: `<div class="numero-pin">${i + 1}</div>`,
+                          iconSize: [30, 30]
+                });
+                L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b><br>${c.direccion}`);
+        });
 
-    L.polyline(puntos, { color: '#7C5CFF', weight: 3, dashArray: '6 8' }).addTo(mapaLeaflet);
-    if (puntos.length > 0) mapaLeaflet.fitBounds(puntos, { padding: [30, 30] });
+                 L.polyline(puntos, { color: '#7C5CFF', weight: 3, dashArray: '6 8' }).addTo(mapaLeaflet);
+        if (puntos.length > 0) mapaLeaflet.fitBounds(puntos, { padding: [30, 30] });
   }, 50);
 }
 
@@ -621,26 +612,26 @@ function verMiReporte() {
     document.getElementById('reporteManagerNombre').textContent = manager.nombre;
     const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
 
-    const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+  const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
     const citas = clientesM.filter(c => c.estatus === 'cita').length;
     const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
 
-    document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
+  document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
     document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total · ${pendientes} pendientes · ${citas} citas · ${retirados} no volver`;
 
-    const etiquetas = { pendiente: '⏳ Pendiente', activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
+  const etiquetas = { pendiente: '⏳ Pendiente', activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
     const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
 
-    document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
-          const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
-          let detalleCita = '';
-          if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
-                  detalleCita = ` · Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
-          }
-          return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} · ${fecha}${detalleCita}</span></div></div>`;
-    }).join('');
+  document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
+        const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
+        let detalleCita = '';
+        if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
+                detalleCita = ` · Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
+        }
+        return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} · ${fecha}${detalleCita}</span></div></div>`;
+  }).join('');
 
-    mostrarPantalla('pantallaReporteManager');
+  mostrarPantalla('pantallaReporteManager');
 }
 
 function volverDeReporte() { mostrarPantalla('pantallaSaludo'); }

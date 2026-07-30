@@ -118,6 +118,7 @@
     <h1 id="saludoNombre">¡Hola!</h1>
     <p class="subt" id="saludoResumen">Cargando tu ruta de hoy...</p>
     <button class="btn btn-teal" onclick="iniciarJornada()">Comenzar mi ruta</button>
+    <button class="btn-texto" onclick="verMiReporte()">Ver mi listado y avance</button>
   </div>
 </div>
 
@@ -153,6 +154,30 @@
   </header>
   <div id="mapaGrande" class="mapa-grande"></div>
 </div>
+  <!-- PANTALLA: MANAGER - MI REPORTE -->
+  <div id="pantallaReporteManager" class="pantalla">
+      <header class="topbar topbar-violeta">
+            <div class="topbar-title">
+                    <span class="topbar-emoji">📋</span>
+                    <div>
+                              <h2>Mi reporte</h2>
+                            <p id="reporteManagerNombre">Manager</p>
+                    </div>
+            </div>
+          <button class="btn-icono" onclick="volverDeReporte()" title="Cerrar">✕</button>
+      </header>
+  
+    <div class="contenido">
+        <div class="tarjeta" style="display:flex; align-items:center; gap:16px;">
+              <div id="reporteDona" class="dona" style="width:64px; height:64px;"></div>
+              <p id="reporteResumenTexto" class="texto-suave" style="margin:0;"></p>
+        </div>
+    
+        <button class="btn btn-coral" onclick="descargarMiExcel()">⬇ Descargar mi Excel</button>
+    
+        <div id="listaReporteManager" class="lista-managers" style="margin-top:16px;"></div>
+    </div>
+  </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>

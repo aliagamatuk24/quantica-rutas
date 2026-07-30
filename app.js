@@ -1,4 +1,4 @@
-// ============================================================
+í// ============================================================
 // QUÁNTICA RUTAS — Fase 1
 // ============================================================
 
@@ -149,7 +149,10 @@ function vaciarCartera(managerId, nombre) {
     renderPanelAdmin();
 }
 function copiarLink(link) {
-  navigator.clipboard.writeText(link).then(() => alert('Link copiado. Envíaselo a tu manager por WhatsApp.'));
+  navigator.clipboard.writeText(link).then(() => alert('Link copiado:
+' + link + '
+
+Enviaselo a tu manager por WhatsApp.')).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link));
 }
 
 function crearManager() {

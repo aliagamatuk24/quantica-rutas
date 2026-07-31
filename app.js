@@ -239,16 +239,15 @@ function detenerCargaCartera() {
 // hecho especificamente para direcciones de EE.UU.). Si no encuentra la direccion, usa
 // Nominatim como respaldo (con la pausa que exige su politica de uso).
 async function geocodificarCensus(direccion) {
-    try {
-          const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(direccion)}&benchmark=Public_AR_Current&format=json`;
-          const r = await fetch(url);
-          const data = await r.json();
-          const match = data && data.result && data.result.addressMatches && data.result.addressMatches[0];
-          if (match && match.coordinates) {
-                  return { lat: match.coordinates.y, lng: match.coordinates.x };
-          }
-    } catch (e) { console.error('Geocodificacion Census fallo', e); }
-    return null;
+        try {
+                    const url = `/api/geocode?direccion=${encodeURIComponent(direccion)}`;
+                    const r = await fetch(url);
+                    const data = await r.json();
+                    if (data && data.lat != null && data.lng != null) {
+                                    return { lat: data.lat, lng: data.lng };
+                    }
+        } catch (e) { console.error('Geocodificacion Census fallo', e); }
+        return null;
 }
 
 async function geocodificarNominatim(direccion) {

@@ -147,13 +147,13 @@ function renderPanelAdmin() {
           const citas = clientesM.filter(c => c.estatus === 'cita').length;
           const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
           const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-              return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos - ${pendientes} pend - ${citas} citas - ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button></div></div>`;
+              return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos - ${pendientes} pend - ${citas} citas - ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button></div></div>`;
     }).join('');
 }
 
 function donaEstilo(clientes) {
     const total = clientes.length;
-    if (total === 0) return 'background:#E8E4F5;';
+    if (total === 0) return 'background:#E2E8F0;';
     const pendientes = clientes.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
     const citas = clientes.filter(c => c.estatus === 'cita').length;
     const p1 = (pendientes / total) * 360;
@@ -173,6 +173,21 @@ async function vaciarCartera(managerId, nombre) {
     renderPanelAdmin();
 }
 
+async function eliminarManager(managerId, nombre) {
+        const clientesM = estado.clientes.filter(c => c.managerId === managerId);
+        const mensaje = clientesM.length > 0
+            ? `Seguro que quieres eliminar a "${nombre}" para siempre? Tambien se borraran sus ${clientesM.length} clientes cargados y el link que le compartiste dejara de funcionar. Esto no se puede deshacer.`
+                    : `Seguro que quieres eliminar a "${nombre}" para siempre? El link que le compartiste dejara de funcionar. Esto no se puede deshacer.`;
+        if (!confirm(mensaje)) return;
+        if (!confirm(`Ultima confirmacion: se va a eliminar al manager "${nombre}" para siempre.`)) return;
+        const ok = await actualizarEstado((est) => {
+                    est.managers = est.managers.filter(m => m.id !== managerId);
+                    est.clientes = est.clientes.filter(c => c.managerId !== managerId);
+        });
+        if (!ok) alert('No se pudo eliminar, intenta de nuevo.');
+        renderPanelAdmin();
+}
+
 function copiarLink(link) { navigator.clipboard.writeText(link).then(() => alert(`Link copiado: ${link} - enviaselo a tu manager por WhatsApp.`)).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link)); }
 
 async function crearManager() {
@@ -189,12 +204,34 @@ async function crearManager() {
 }
 
 let managerCarteraActual = null;
+let cargaCarteraToken = 0;
+let cargaCarteraActiva = false;
+
 function abrirModalCartera(managerId, nombre) {
-    managerCarteraActual = managerId;
-    document.getElementById('nombreManagerCartera').textContent = nombre;
-    document.getElementById('textoCartera').value = '';
-    document.getElementById('previewCartera').textContent = '';
-    mostrarModal('modalCartera');
+        managerCarteraActual = managerId;
+        document.getElementById('nombreManagerCartera').textContent = nombre;
+        document.getElementById('textoCartera').value = '';
+        document.getElementById('previewCartera').textContent = '';
+        document.getElementById('archivoCarteraExcel').value = '';
+        cargaCarteraToken++;
+        cargaCarteraActiva = false;
+        document.getElementById('btnCargarCartera').style.display = '';
+        document.getElementById('btnDetenerCarga').style.display = 'none';
+        mostrarModal('modalCartera');
+}
+
+function cerrarModalCartera() {
+        cargaCarteraToken++;
+        cargaCarteraActiva = false;
+        cerrarModal('modalCartera');
+}
+
+function detenerCargaCartera() {
+        cargaCarteraToken++;
+        cargaCarteraActiva = false;
+        document.getElementById('previewCartera').textContent = 'Carga detenida. No se guardo nada todavia.';
+        document.getElementById('btnCargarCartera').style.display = '';
+        document.getElementById('btnDetenerCarga').style.display = 'none';
 }
 
 // Convierte una direccion de texto en coordenadas (lat/lng).
@@ -290,65 +327,80 @@ function leerExcel(archivo) {
 }
 
 async function cargarCartera() {
-    const archivo = document.getElementById('archivoCarteraExcel').files[0];
-    const texto = document.getElementById('textoCartera').value.trim();
-    const preview = document.getElementById('previewCartera');
+        if (cargaCarteraActiva) return;
+        const archivo = document.getElementById('archivoCarteraExcel').files[0];
+        const texto = document.getElementById('textoCartera').value.trim();
+        const preview = document.getElementById('previewCartera');
 
-  let filas = [];
-    if (archivo) {
-          preview.textContent = 'Leyendo el Excel...';
-          filas = await leerExcel(archivo);
-    } else if (texto) {
-          filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
-            .map(linea => {
-                      const partes = linea.split(',').map(p => p.trim());
-                      const nombre = partes[0] || '';
-                      const direccion = partes[1] || '';
-                      const resto = partes.slice(2).join(', ');
-                      return ['', nombre, resto ? `${direccion}, ${resto}` : direccion];
-            });
-    } else {
-          return;
-    }
+        let filas = [];
+        if (archivo) {
+                    preview.textContent = 'Leyendo el Excel...';
+                    filas = await leerExcel(archivo);
+        } else if (texto) {
+                    filas = texto.split('\n').map(l => l.trim()).filter(Boolean)
+                        .map(linea => {
+                                            const partes = linea.split(',').map(p => p.trim());
+                                            const nombre = partes[0] || '';
+                                            const direccion = partes[1] || '';
+                                            const resto = partes.slice(2).join(', ');
+                                            return ['', nombre, resto ? `${direccion}, ${resto}` : direccion];
+                        });
+        } else {
+                    return;
+        }
 
-  const sinUbicar = [];
-    const nuevosClientes = [];
+        const miToken = ++cargaCarteraToken;
+        const managerDestino = managerCarteraActual;
+        cargaCarteraActiva = true;
+        document.getElementById('btnCargarCartera').style.display = 'none';
+        document.getElementById('btnDetenerCarga').style.display = '';
 
-  for (let i = 0; i < filas.length; i++) {
-        const [codigo, nombre, direccionCompleta] = filas[i];
-        if (!nombre || !direccionCompleta) continue;
-        preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
-        const coords = await geocodificar(direccionCompleta);
-        if (!coords) sinUbicar.push(nombre);
-        nuevosClientes.push({
-                id: uid(),
-                managerId: managerCarteraActual,
-                codigo,
-                nombre,
-                direccion: direccionCompleta,
-                telefono: '',
-                observaciones: '',
-                lat: coords ? coords.lat : null,
-                lng: coords ? coords.lng : null,
-                estatus: 'pendiente',
-                citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
-                horaLlegada: null
+        const sinUbicar = [];
+        const nuevosClientes = [];
+
+        for (let i = 0; i < filas.length; i++) {
+                    if (miToken !== cargaCarteraToken) { cargaCarteraActiva = false; return; }
+                    const [codigo, nombre, direccionCompleta] = filas[i];
+                    if (!nombre || !direccionCompleta) continue;
+                    preview.textContent = `Ubicando direccion ${i + 1} de ${filas.length}: ${nombre}...`;
+                    const coords = await geocodificar(direccionCompleta);
+                    if (miToken !== cargaCarteraToken) { cargaCarteraActiva = false; return; }
+                    if (!coords) sinUbicar.push(nombre);
+                    nuevosClientes.push({
+                                    id: uid(),
+                                    managerId: managerDestino,
+                                    codigo,
+                                    nombre,
+                                    direccion: direccionCompleta,
+                                    telefono: '',
+                                    observaciones: '',
+                                    lat: coords ? coords.lat : null,
+                                    lng: coords ? coords.lng : null,
+                                    estatus: 'pendiente',
+                                    citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
+                                    horaLlegada: null
+                    });
+        }
+
+        if (miToken !== cargaCarteraToken) { cargaCarteraActiva = false; return; }
+
+        await actualizarEstado((est) => {
+                    nuevosClientes.forEach(c => est.clientes.push(c));
         });
-  }
 
-  await actualizarEstado((est) => {
-        nuevosClientes.forEach(c => est.clientes.push(c));
-  });
+        cargaCarteraActiva = false;
+        document.getElementById('btnCargarCartera').style.display = '';
+        document.getElementById('btnDetenerCarga').style.display = 'none';
 
-  if (sinUbicar.length > 0) {
-        preview.textContent = `Se cargaron ${filas.length} clientes. ${sinUbicar.length} no se pudieron ubicar en el mapa (revisa calle, ciudad y estado): ${sinUbicar.join(', ')}.`;
-  } else {
-        preview.textContent = `Listo, se ubicaron correctamente los ${filas.length} clientes.`;
-  }
-    renderPanelAdmin();
-    if (sinUbicar.length === 0) {
-          setTimeout(() => cerrarModal('modalCartera'), 900);
-    }
+        if (sinUbicar.length > 0) {
+                    preview.textContent = `Se cargaron ${filas.length} clientes. ${sinUbicar.length} no se pudieron ubicar en el mapa (revisa calle, ciudad y estado): ${sinUbicar.join(', ')}.`;
+        } else {
+                    preview.textContent = `Listo, se ubicaron correctamente los ${filas.length} clientes.`;
+        }
+        renderPanelAdmin();
+        if (sinUbicar.length === 0) {
+                    setTimeout(() => cerrarModal('modalCartera'), 900);
+        }
 }
 
 function exportarExcelGeneral() {

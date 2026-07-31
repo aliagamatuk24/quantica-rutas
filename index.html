@@ -98,8 +98,9 @@
       <textarea id="textoCartera" class="textarea" placeholder="Juan Pérez, 312 Willoughby Blvd, Greensboro, NC 27408"></textarea>
     <div id="previewCartera" class="preview-cartera"></div>
     <div class="modal-botones">
-      <button class="btn-texto" onclick="cerrarModal('modalCartera')">Cancelar</button>
-      <button class="btn btn-teal" onclick="cargarCartera()">Cargar clientes</button>
+              <button class="btn-texto" onclick="cerrarModalCartera()">Cancelar</button>
+              <button id="btnDetenerCarga" class="btn-texto" style="display:none;color:var(--rojo);" onclick="detenerCargaCartera()">Detener carga</button>
+              <button id="btnCargarCartera" class="btn btn-teal" onclick="cargarCartera()">Cargar clientes</button>
     </div>
   </div>
 </div>

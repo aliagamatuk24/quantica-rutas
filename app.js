@@ -280,50 +280,51 @@ function normalizarTexto(s) {
 // esas palabras en la fila de encabezados, sin importar cuantas columnas haya antes
 // (Numero de parada, Codigo, etc.) ni en que orden vengan.
 function leerExcel(archivo) {
-    return new Promise((resolve, reject) => {
-          const lector = new FileReader();
-          lector.onload = (e) => {
-                  try {
-                            const wb = XLSX.read(e.target.result, { type: 'array' });
-                            const hoja = wb.Sheets[wb.SheetNames[0]];
-                            const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
+        return new Promise((resolve, reject) => {
+                    const lector = new FileReader();
+                    lector.onload = (e) => {
+                                    try {
+                                                        const wb = XLSX.read(e.target.result, { type: 'array' });
+                                                        const hoja = wb.Sheets[wb.SheetNames[0]];
+                                                        const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
 
-                    let colNombre = -1, colDireccion = -1, colCodigo = -1, filaInicio = 0;
-                            for (let f = 0; f < Math.min(filas.length, 5); f++) {
-                                        const fila = filas[f] || [];
-                                        const nIdx = fila.findIndex(v => normalizarTexto(v).includes('nombre'));
-                                        const dIdx = fila.findIndex(v => normalizarTexto(v).includes('direcc'));
-                                        if (nIdx !== -1 && dIdx !== -1) {
-                                                      colNombre = nIdx;
-                                                      colDireccion = dIdx;
-                                                      colCodigo = fila.findIndex(v => normalizarTexto(v).includes('codigo'));
-                                                      filaInicio = f + 1;
-                                                      break;
-                                        }
-                            }
+                                                        let colNombre = -1, colDireccion = -1, colCodigo = -1, colCiudad = -1, filaInicio = 0;
+                                                        for (let f = 0; f < Math.min(filas.length, 5); f++) {
+                                                                                const fila = filas[f] || [];
+                                                                                const nIdx = fila.findIndex(v => normalizarTexto(v).includes('nombre'));
+                                                                                const dIdx = fila.findIndex(v => normalizarTexto(v).includes('direcc'));
+                                                                                if (nIdx !== -1 && dIdx !== -1) {
+                                                                                                            colNombre = nIdx;
+                                                                                                            colDireccion = dIdx;
+                                                                                                            colCodigo = fila.findIndex(v => normalizarTexto(v).includes('codigo'));
+                                                                                                            colCiudad = fila.findIndex(v => normalizarTexto(v).includes('ciudad') || normalizarTexto(v).includes('estado') || normalizarTexto(v).includes('zip') || normalizarTexto(v).includes('city') || normalizarTexto(v).includes('state'));
+                                                                                                            filaInicio = f + 1;
+                                                                                                            break;
+                                                                                    }
+                                                        }
 
-                    let resultado;
-                            if (colNombre !== -1) {
-                                        resultado = filas.slice(filaInicio)
-                                          .filter(f => f[colNombre] && f[colDireccion])
-                                          .map(f => [
-                                                          colCodigo !== -1 && f[colCodigo] ? String(f[colCodigo]).trim() : '',
-                                                          String(f[colNombre]).trim(),
-                                                          String(f[colDireccion]).trim()
-                                                        ]);
-                            } else {
-                                        let inicio = 0;
-                                        if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
-                                        resultado = filas.slice(inicio)
-                                          .filter(f => f[0] && f[1])
-                                          .map(f => ['', String(f[0]).trim(), f[2] ? `${String(f[1]).trim()}, ${String(f[2]).trim()}` : String(f[1]).trim()]);
-                            }
-                            resolve(resultado);
-                  } catch (err) { reject(err); }
-          };
-          lector.onerror = reject;
-          lector.readAsArrayBuffer(archivo);
-    });
+                                                        let resultado;
+                                                        if (colNombre !== -1) {
+                                                                                resultado = filas.slice(filaInicio)
+                                                                                    .filter(f => f[colNombre] && f[colDireccion])
+                                                                                    .map(f => [
+                                                                                                                    colCodigo !== -1 && f[colCodigo] ? String(f[colCodigo]).trim() : '',
+                                                                                                                    String(f[colNombre]).trim(),
+                                                                                                                    colCiudad !== -1 && f[colCiudad] ? `${String(f[colDireccion]).trim()}, ${String(f[colCiudad]).trim()}` : String(f[colDireccion]).trim()
+                                                                                                                ]);
+                                                        } else {
+                                                                                let inicio = 0;
+                                                                                if (filas[0] && String(filas[0][0]).toLowerCase().includes('nombre')) inicio = 1;
+                                                                                resultado = filas.slice(inicio)
+                                                                                    .filter(f => f[0] && f[1])
+                                                                                    .map(f => ['', String(f[0]).trim(), f[2] ? `${String(f[1]).trim()}, ${String(f[2]).trim()}` : String(f[1]).trim()]);
+                                                        }
+                                                        resolve(resultado);
+                                    } catch (err) { reject(err); }
+                    };
+                    lector.onerror = reject;
+                    lector.readAsArrayBuffer(archivo);
+        });
 }
 
 async function cargarCartera() {

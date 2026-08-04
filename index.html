@@ -59,7 +59,7 @@
     <div class="tarjeta">
       <div class="tarjeta-header">
         <h3>Managers</h3>
-        <button class="btn-chico btn-violeta" onclick="mostrarModal('modalNuevoManager')">+ Nuevo manager</button>
+        <button class="btn-chico btn-violeta" onclick="abrirModalNuevoManager()">+ Nuevo manager</button>
       </div>
       <div id="listaManagers" class="lista-managers"></div>
     </div>
@@ -78,7 +78,7 @@
 <div id="modalNuevoManager" class="modal-fondo">
   <div class="modal-caja">
     <h3>Nuevo manager</h3>
-    <input type="text" id="nombreNuevoManager" class="input" placeholder="Nombre completo">
+    <input type="text" id="nombreNuevoManager" class="input" placeholder="Nombre completo"><label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:14px;"><input type="checkbox" id="nuevoManagerEsOficina"> Es manager de oficina (puede supervisar sub-managers)</label><label style="display:block;margin-top:10px;font-size:14px;">Supervisor (opcional)</label><select id="nuevoManagerSupervisor" class="input"><option value="">Sin supervisor</option></select>
     <div class="modal-botones">
       <button class="btn-texto" onclick="cerrarModal('modalNuevoManager')">Cancelar</button>
       <button class="btn btn-violeta" onclick="crearManager()">Crear</button>
@@ -119,11 +119,11 @@
     <h1 id="saludoNombre">¡Hola!</h1>
     <p class="subt" id="saludoResumen">Cargando tu ruta de hoy...</p>
     <button class="btn btn-teal" onclick="iniciarJornada()">Comenzar mi ruta</button>
-    <button class="btn btn-violeta" onclick="verMiReporte()">Ver mi cartera y avance</button>
+    <button class="btn btn-violeta" onclick="verMiReporte()">Ver mi cartera y avance</button><button id="btnMiEquipo" class="btn btn-coral" style="display:none;" onclick="verEquipo(managerActivoId, 'saludo')">Mi equipo</button>
   </div>
 </div>
 
-<!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
+<div id="pantallaEquipo" class="pantalla"><header class="topbar topbar-violeta"><div class="topbar-title"><span class="topbar-emoji">🧑‍💼</span><div><h2>Mi equipo</h2><p id="equipoNombreOficina">Manager de oficina</p></div></div><button class="btn-icono" onclick="volverDeEquipo()" title="Cerrar">✕</button></header><div class="contenido"><div class="tarjeta" style="display:flex; align-items:center; gap:16px;"><div id="equipoDona" class="dona" style="width:64px; height:64px;"></div><p id="equipoResumenTexto" class="texto-suave" style="margin:0;"></p></div><div class="tarjeta"><p id="equipoStatsTexto" class="texto-suave" style="margin:0;"></p></div><div id="listaEquipo" class="lista-managers" style="margin-top:16px;"></div></div></div><!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
 <div id="pantallaRuta" class="pantalla">
   <header class="topbar topbar-teal">
     <div class="topbar-title">
@@ -175,7 +175,7 @@
               <p id="reporteResumenTexto" class="texto-suave" style="margin:0;"></p>
         </div>
     
-        <button class="btn btn-coral" onclick="descargarMiExcel()">⬇ Descargar mi Excel</button>
+        <div class="tarjeta"><p id="reporteStatsTexto" class="texto-suave" style="margin:0;"></p></div><button class="btn btn-coral" onclick="descargarMiExcel()">⬇ Descargar mi Excel</button>
     
         <div id="listaReporteManager" class="lista-managers" style="margin-top:16px;"></div>
     </div>
@@ -183,6 +183,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

@@ -135,20 +135,22 @@ function validarAdmin() {
 // PANEL ADMIN
 // ============================================================
 function renderPanelAdmin() {
-    const cont = document.getElementById('listaManagers');
-    if (estado.managers.length === 0) {
-          cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavía no tienes managers. Crea el primero arriba.</div>`;
-          return;
-    }
-    cont.innerHTML = estado.managers.map(m => {
-          const clientesM = estado.clientes.filter(c => c.managerId === m.id);
-          const activos = clientesM.filter(c => c.estatus !== 'retirado').length;
-          const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
-          const citas = clientesM.filter(c => c.estatus === 'cita').length;
-          const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
-          const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-              return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${activos} activos - ${pendientes} pend - ${citas} citas - ${retirados} retirados</span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button></div></div>`;
-    }).join('');
+        const cont = document.getElementById('listaManagers');
+        if (estado.managers.length === 0) {
+                    cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavía no tienes managers. Crea el primero arriba.</div>`;
+                    return;
+        }
+        cont.innerHTML = estado.managers.map(m => {
+                    const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+                    const activos = clientesM.filter(c => c.estatus !== 'retirado').length;
+                    const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+                    const citas = clientesM.filter(c => c.estatus === 'cita').length;
+                    const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
+                    const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
+                    const supervisorTxt = m.supervisorId ? ` - Supervisor: ${(estado.managers.find(x => x.id === m.supervisorId) || {}).nombre || '—'}` : '';
+                    const opcionesOficinas = estado.managers.filter(x => x.esOficina && x.id !== m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pendientes} pendientes, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${activos} activos - ${pendientes} pend - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)"> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)"><option value="">Sin supervisor</option>${opcionesOficinas}</select></span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button></div></div>`;
+        }).join('');
 }
 
 function donaEstilo(clientes) {
@@ -159,6 +161,44 @@ function donaEstilo(clientes) {
     const p1 = (pendientes / total) * 360;
     const p2 = p1 + (citas / total) * 360;
     return `background:conic-gradient(#8A8F98 0deg ${p1}deg, #FFB020 ${p1}deg ${p2}deg, #EF4444 ${p2}deg 360deg);`;
+}
+
+function diasActivaCartera(clientes) {
+        const fechas = clientes.map(c => c.fechaCarga).filter(Boolean);
+        if (fechas.length === 0) return 1;
+        const minFecha = fechas.reduce((a, b) => (a < b ? a : b));
+        const inicio = new Date(minFecha); inicio.setHours(0, 0, 0, 0);
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const dias = Math.round((hoy - inicio) / 86400000) + 1;
+        return Math.max(1, dias);
+}
+
+function clientesPorDia(clientes) {
+        const visitados = clientes.filter(c => c.fechaHoraLlegada).length;
+        const dias = diasActivaCartera(clientes);
+        return dias > 0 ? visitados / dias : 0;
+}
+
+function fechaEstimadaFin(clientes) {
+        const pendientes = clientes.filter(c => !c.fechaHoraLlegada && c.estatus !== 'retirado').length;
+        if (pendientes === 0) return 'Completado';
+        const ritmo = clientesPorDia(clientes);
+        if (ritmo <= 0) return null;
+        const diasRestantes = Math.ceil(pendientes / ritmo);
+        const fecha = new Date();
+        fecha.setDate(fecha.getDate() + diasRestantes);
+        return fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function tasaEfectividad(clientes) {
+        const citas = clientes.filter(c => c.estatus === 'cita').length;
+        const retirados = clientes.filter(c => c.estatus === 'retirado').length;
+        const denom = citas + retirados;
+        return denom > 0 ? Math.round((citas / denom) * 100) : null;
+}
+
+function subManagersDe(oficinaId) {
+        return estado.managers.filter(m => m.supervisorId === oficinaId);
 }
 
 async function vaciarCartera(managerId, nombre) {
@@ -191,16 +231,92 @@ async function eliminarManager(managerId, nombre) {
 function copiarLink(link) { navigator.clipboard.writeText(link).then(() => alert(`Link copiado: ${link} - enviaselo a tu manager por WhatsApp.`)).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link)); }
 
 async function crearManager() {
-    const nombre = document.getElementById('nombreNuevoManager').value.trim();
-    if (!nombre) return;
-    const nuevoId = uid();
-    const ok = await actualizarEstado((est) => {
-          est.managers.push({ id: nuevoId, nombre, activo: true, jornadaInicio: null, jornadaFin: null });
-    });
-    document.getElementById('nombreNuevoManager').value = '';
-    cerrarModal('modalNuevoManager');
-    if (!ok) alert('No se pudo guardar el nuevo manager, revisa tu conexion e intenta de nuevo.');
-    renderPanelAdmin();
+        const nombre = document.getElementById('nombreNuevoManager').value.trim();
+        if (!nombre) return;
+        const esOficina = document.getElementById('nuevoManagerEsOficina').checked;
+        const supervisorId = document.getElementById('nuevoManagerSupervisor').value || null;
+        const nuevoId = uid();
+        const ok = await actualizarEstado((est) => {
+                    est.managers.push({ id: nuevoId, nombre, activo: true, jornadaInicio: null, jornadaFin: null, esOficina, supervisorId });
+        });
+        document.getElementById('nombreNuevoManager').value = '';
+        document.getElementById('nuevoManagerEsOficina').checked = false;
+        cerrarModal('modalNuevoManager');
+        if (!ok) alert('No se pudo guardar el nuevo manager, revisa tu conexion e intenta de nuevo.');
+        renderPanelAdmin();
+}
+
+function abrirModalNuevoManager() {
+        const sel = document.getElementById('nuevoManagerSupervisor');
+        const opciones = estado.managers.filter(m => m.esOficina).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        sel.innerHTML = `<option value="">Sin supervisor</option>${opciones}`;
+        document.getElementById('nuevoManagerEsOficina').checked = false;
+        mostrarModal('modalNuevoManager');
+}
+
+async function toggleEsOficina(managerId, valor) {
+        const ok = await actualizarEstado((est) => {
+                    const m = est.managers.find(x => x.id === managerId);
+                    if (m) m.esOficina = valor;
+        });
+        if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
+        renderPanelAdmin();
+}
+
+async function asignarSupervisor(managerId, supervisorId) {
+        const ok = await actualizarEstado((est) => {
+                    const m = est.managers.find(x => x.id === managerId);
+                    if (m) m.supervisorId = supervisorId || null;
+        });
+        if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
+        renderPanelAdmin();
+}
+
+let oficinaActivaId = null;
+let origenEquipo = 'saludo';
+
+function verEquipo(oficinaId, origen) {
+        oficinaActivaId = oficinaId;
+        origenEquipo = origen || 'saludo';
+        const oficina = estado.managers.find(m => m.id === oficinaId);
+        if (!oficina) return;
+        document.getElementById('equipoNombreOficina').textContent = oficina.nombre;
+        const subs = subManagersDe(oficinaId);
+        const idsSubs = subs.map(m => m.id);
+        const clientesEquipo = estado.clientes.filter(c => idsSubs.includes(c.managerId));
+
+        document.getElementById('equipoDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesEquipo)}`);
+        const pendientesEq = clientesEquipo.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+        const citasEq = clientesEquipo.filter(c => c.estatus === 'cita').length;
+        const retiradosEq = clientesEquipo.filter(c => c.estatus === 'retirado').length;
+        document.getElementById('equipoResumenTexto').textContent = `${clientesEquipo.length} clientes en total del equipo - ${pendientesEq} pendientes - ${citasEq} citas - ${retiradosEq} no volver`;
+
+        const efectividadEq = tasaEfectividad(clientesEquipo);
+        const diasEq = diasActivaCartera(clientesEquipo);
+        const ritmoEq = clientesPorDia(clientesEquipo);
+        const finEq = fechaEstimadaFin(clientesEquipo);
+        document.getElementById('equipoStatsTexto').innerHTML = `<b>Tasa de efectividad:</b> ${efectividadEq != null ? efectividadEq + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${diasEq} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmoEq.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${finEq || 'Sin datos aun'}`;
+
+        document.getElementById('listaEquipo').innerHTML = subs.length === 0
+            ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes sub-managers asignados.</div>`
+                    : subs.map(m => {
+                                    const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+                                    const pend = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+                                    const cit = clientesM.filter(c => c.estatus === 'cita').length;
+                                    const ret = clientesM.filter(c => c.estatus === 'retirado').length;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pend} pendientes, ${cit} citas, ${ret} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${pend} pend - ${cit} citas - ${ret} retirados</span></div><div class="fila-manager-acciones"><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button></div></div>`;
+                    }).join('');
+
+        mostrarPantalla('pantallaEquipo');
+}
+
+function volverDeEquipo() {
+        if (origenEquipo === 'admin') {
+                    renderPanelAdmin();
+                    mostrarPantalla('pantallaAdmin');
+        } else {
+                    mostrarPantalla('pantallaSaludo');
+        }
 }
 
 let managerCarteraActual = null;
@@ -378,7 +494,7 @@ async function cargarCartera() {
                                     lng: coords ? coords.lng : null,
                                     estatus: 'pendiente',
                                     citaFecha: '', citaHora: '', citaTelefono: '', citaObservaciones: '',
-                                    horaLlegada: null
+                                    horaLlegada: null,                    fechaCarga: new Date().toISOString()
                     });
         }
 
@@ -472,12 +588,14 @@ function exportarExcelGeneral() {
 // VISTA MANAGER — SALUDO
 // ============================================================
 function prepararSaludo(manager) {
-    document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
-    const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
-    document.getElementById('saludoResumen').textContent =
-          pendientes.length > 0
-        ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
-            : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
+        document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
+        const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
+        document.getElementById('saludoResumen').textContent =
+                    pendientes.length > 0
+                ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
+                        : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
+        const btnEquipo = document.getElementById('btnMiEquipo');
+        if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
 }
 
 async function iniciarJornada() {
@@ -694,44 +812,53 @@ function volverAVistaRuta() { mostrarPantalla('pantallaRuta'); }
 // VISTA MANAGER — MI REPORTE
 // ============================================================
 function verMiReporte(managerId, origen) {
-      managerReporteId = managerId || managerActivoId;
-      origenReporte = origen || 'saludo';
-      const manager = estado.managers.find(m => m.id === managerReporteId);
-      if (!manager) return;
-      document.getElementById('reporteManagerNombre').textContent = manager.nombre;
-      const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+        managerReporteId = managerId || managerActivoId;
+        origenReporte = origen || 'saludo';
+        const manager = estado.managers.find(m => m.id === managerReporteId);
+        if (!manager) return;
+        document.getElementById('reporteManagerNombre').textContent = manager.nombre;
+        const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
 
-  const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
-      const citas = clientesM.filter(c => c.estatus === 'cita').length;
-      const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
+        const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+        const citas = clientesM.filter(c => c.estatus === 'cita').length;
+        const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
 
-  document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
-      document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total - ${pendientes} pendientes - ${citas} citas - ${retirados} no volver`;
+        document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
+        document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total - ${pendientes} pendientes - ${citas} citas - ${retirados} no volver`;
 
-  const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver' };
-      const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
+        const efectividad = tasaEfectividad(clientesM);
+        const dias = diasActivaCartera(clientesM);
+        const ritmo = clientesPorDia(clientesM);
+        const fechaFin = fechaEstimadaFin(clientesM);
+        const statsEl = document.getElementById('reporteStatsTexto');
+        if (statsEl) statsEl.innerHTML = `<b>Efectividad:</b> ${efectividad != null ? efectividad + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${dias} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmo.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${fechaFin || 'Sin datos aun'}`;
 
-  document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
-          const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
-          let detalleCita = '';
-          if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
-                    detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
-          }
-          return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div></div>`;
-  }).join('');
+        const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver' };
+        const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
 
-  mostrarPantalla('pantallaReporteManager');
+        document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
+                    const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
+                    let detalleCita = '';
+                    if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
+                                    detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
+                    }
+                    return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div></div>`;
+        }).join('');
+
+        mostrarPantalla('pantallaReporteManager');
 }
 
 function volverDeReporte() {
-      if (origenReporte === 'admin') {
-              renderPanelAdmin();
-              mostrarPantalla('pantallaAdmin');
-      } else if (origenReporte === 'ruta') {
-              mostrarPantalla('pantallaRuta');
-      } else {
-              mostrarPantalla('pantallaSaludo');
-      }
+        if (origenReporte === 'admin') {
+                    renderPanelAdmin();
+                    mostrarPantalla('pantallaAdmin');
+        } else if (origenReporte === 'ruta') {
+                    mostrarPantalla('pantallaRuta');
+        } else if (origenReporte === 'equipo') {
+                    mostrarPantalla('pantallaEquipo');
+        } else {
+                    mostrarPantalla('pantallaSaludo');
+        }
 }
 
 function descargarMiExcel() {

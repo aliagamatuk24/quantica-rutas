@@ -84,8 +84,15 @@ async function actualizarEstado(cambiarFn, intentos) {
           await cargarEstado();
           await cambiarFn(estado);
           const ok = await guardarEstado();
-          if (ok) return true;
-                              await esperar(300 + i * 200);
+          if (ok) {
+                await esperar(900);
+                try {
+                      const verif = await fetch(API, { cache: 'no-store' });
+                      const verifData = await verif.json();
+                      if (verifData._etag === estadoEtag) return true;
+                } catch (e) { console.error('No se pudo verificar el guardado', e); }
+          }
+          await esperar(300 + i * 200);
     }
     return false;
 }
@@ -143,7 +150,7 @@ function renderPanelAdmin() {
         cont.innerHTML = estado.managers.map(m => {
                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                     const activos = clientesM.filter(c => c.estatus !== 'retirado').length;
-                    const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+                    const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo' || c.estatus === 'no_atendio').length;
                     const citas = clientesM.filter(c => c.estatus === 'cita').length;
                     const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
@@ -156,7 +163,7 @@ function renderPanelAdmin() {
 function donaEstilo(clientes) {
     const total = clientes.length;
     if (total === 0) return 'background:#E2E8F0;';
-    const pendientes = clientes.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+    const pendientes = clientes.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo' || c.estatus === 'no_atendio').length;
     const citas = clientes.filter(c => c.estatus === 'cita').length;
     const p1 = (pendientes / total) * 360;
     const p2 = p1 + (citas / total) * 360;
@@ -286,7 +293,7 @@ function verEquipo(oficinaId, origen) {
         const clientesEquipo = estado.clientes.filter(c => idsSubs.includes(c.managerId));
 
         document.getElementById('equipoDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesEquipo)}`);
-        const pendientesEq = clientesEquipo.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+        const pendientesEq = clientesEquipo.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo' || c.estatus === 'no_atendio').length;
         const citasEq = clientesEquipo.filter(c => c.estatus === 'cita').length;
         const retiradosEq = clientesEquipo.filter(c => c.estatus === 'retirado').length;
         document.getElementById('equipoResumenTexto').textContent = `${clientesEquipo.length} clientes en total del equipo - ${pendientesEq} pendientes - ${citasEq} citas - ${retiradosEq} no volver`;
@@ -548,7 +555,7 @@ function exportarExcelGeneral() {
               resumen.push({
                         Manager: m.nombre,
                         'Total clientes': clientesM.length,
-                        Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente').length,
+                        Activos: clientesM.filter(c => c.estatus === 'activo' || c.estatus === 'pendiente' || c.estatus === 'no_atendio').length,
                         'Citas efectivas': clientesM.filter(c => c.estatus === 'cita').length,
                         Retirados: clientesM.filter(c => c.estatus === 'retirado').length
               });
@@ -694,8 +701,8 @@ function renderClienteActual() {
 
   const c = rutaOrdenada[indiceClienteActual];
     const yaCompletado = !!c.horaLlegada;
-    const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver' };
-    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div><div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
+    const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver', no_atendio: '⚪ No atendio' };
+    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendio' : '⚪ No atendio'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div><div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
 }
 
 function clienteAnterior() {
@@ -838,7 +845,7 @@ function verMiReporte(managerId, origen) {
         const statsEl = document.getElementById('reporteStatsTexto');
         if (statsEl) statsEl.innerHTML = `<b>Efectividad:</b> ${efectividad != null ? efectividad + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${dias} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmo.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${fechaFin || 'Sin datos aun'}`;
 
-        const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver' };
+        const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver', no_atendio: 'No atendio' };
         const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
 
         document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {

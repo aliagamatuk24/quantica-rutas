@@ -237,7 +237,7 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 
 .opciones-visita {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-bottom: 14px;
 }

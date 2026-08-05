@@ -308,7 +308,7 @@ function verEquipo(oficinaId, origen) {
             ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes sub-managers asignados.</div>`
                     : subs.map(m => {
                                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
-                                    const pend = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+                                    const pend = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo' || c.estatus === 'no_atendio').length;
                                     const cit = clientesM.filter(c => c.estatus === 'cita').length;
                                     const ret = clientesM.filter(c => c.estatus === 'retirado').length;
                                     return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${pend} pendientes, ${cit} citas, ${ret} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${pend} pend - ${cit} citas - ${ret} retirados</span></div><div class="fila-manager-acciones"><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button></div></div>`;
@@ -831,7 +831,7 @@ function verMiReporte(managerId, origen) {
         document.getElementById('reporteManagerNombre').textContent = manager.nombre;
         const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
 
-        const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo').length;
+        const pendientes = clientesM.filter(c => c.estatus === 'pendiente' || c.estatus === 'activo' || c.estatus === 'no_atendio').length;
         const citas = clientesM.filter(c => c.estatus === 'cita').length;
         const retirados = clientesM.filter(c => c.estatus === 'retirado').length;
 

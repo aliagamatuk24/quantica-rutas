@@ -893,8 +893,9 @@ function verMiReporte(managerId, origen) {
         document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
                     const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
                     let detalleCita = '';
-                    if (c.estatus === 'cita' && (c.citaFecha || c.citaHora)) {
-                                    detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim();
+                    if (c.estatus === 'cita' && (c.citaFecha || c.citaHora || c.citaTelefono)) {
+                                    const telefonoTxt = c.citaTelefono ? ` · Tel: ${c.citaTelefono}` : '';
+                                    detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim() + telefonoTxt;
                     }
                     return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div></div>`;
         }).join('');

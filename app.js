@@ -23,7 +23,7 @@ function horaAhora() {
     return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatearFechaHora(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+function formatearFechaHora(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } function formatearSoloFecha(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }); } function formatearSoloHora(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); }
 
 function mostrarPantalla(id) {
     document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
@@ -79,13 +79,13 @@ async function guardarEstado() {
 // Si otro celular o pantalla guardo algo justo antes, vuelve a traer lo nuevo y
 // reintenta el mismo cambio en vez de pisar lo que guardo el otro.
 async function actualizarEstado(cambiarFn, intentos) {
-    const maxIntentos = intentos || 4;
+    const maxIntentos = intentos || 6;
     for (let i = 0; i < maxIntentos; i++) {
           await cargarEstado();
           await cambiarFn(estado);
           const ok = await guardarEstado();
           if (ok) return true;
-          await esperar(300);
+                              await esperar(300 + i * 200);
     }
     return false;
 }
@@ -535,7 +535,7 @@ function exportarExcelGeneral() {
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
                                     Estatus: c.estatus,
-                            'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+                            'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',
@@ -560,7 +560,7 @@ function exportarExcelGeneral() {
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
                                     Estatus: c.estatus,
-                                    'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+                                    'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',
@@ -754,18 +754,23 @@ async function marcarEstatus(tipo) {
     const citaTelefono = tipo === 'cita' ? (document.getElementById('citaTelefono')?.value || '') : undefined;
     const citaObservaciones = tipo === 'cita' ? (document.getElementById('citaObservaciones')?.value || '') : undefined;
 
-  await actualizarEstado((est) => {
+const ok = await actualizarEstado((est) => {
         const clienteReal = est.clientes.find(x => x.id === c.id);
         clienteReal.estatus = tipo;
         clienteReal.horaLlegada = horaTexto;
         clienteReal.fechaHoraLlegada = fechaISO;
         if (tipo === 'cita') {
-                clienteReal.citaFecha = citaFecha;
-                clienteReal.citaHora = citaHora;
-                clienteReal.citaTelefono = citaTelefono;
-                clienteReal.citaObservaciones = citaObservaciones;
+                    clienteReal.citaFecha = citaFecha;
+                    clienteReal.citaHora = citaHora;
+                    clienteReal.citaTelefono = citaTelefono;
+                    clienteReal.citaObservaciones = citaObservaciones;
         }
-  });
+});
+    
+    if (!ok) {
+            alert('No se pudo guardar esta gestion. Revisa tu conexion e intenta de nuevo tocando el mismo boton.');
+            return;
+    }
 
   const actualizado = estado.clientes.find(x => x.id === c.id);
     const idx = rutaOrdenada.findIndex(x => x.id === c.id);
@@ -870,7 +875,7 @@ function descargarMiExcel() {
               Direccion: c.direccion,
               Telefono: c.telefono,
               Estatus: c.estatus,
-              'Fecha y hora de gestion': c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : '',
+              'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
               'Fecha cita': c.citaFecha || '',
               'Hora cita': c.citaHora || '',
               'Telefono cita': c.citaTelefono || '',

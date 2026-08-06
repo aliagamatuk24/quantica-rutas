@@ -1343,7 +1343,12 @@ function obtenerUbicacion() {
 async function construirRuta(manager) {
     document.getElementById('rutaNombreManager').textContent = manager.nombre;
 
-  const completados = estado.clientes.filter(c => c.managerId === manager.id && c.horaLlegada);
+  // Los clientes ya visitados se ordenan por la hora real en que se gestionaron (no por el
+  // orden en que estaban guardados internamente), para que el recorrido se vea tal como
+  // realmente sucedio ese dia, en vez de saltar de un lado a otro sin sentido.
+  const completados = estado.clientes
+        .filter(c => c.managerId === manager.id && c.horaLlegada)
+        .sort((a, b) => (a.fechaHoraLlegada || '').localeCompare(b.fechaHoraLlegada || ''));
 
   const pendientes = estado.clientes.filter(c =>
         c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && c.lat && c.lng

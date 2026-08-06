@@ -206,11 +206,13 @@
     <div class="contenido">
         <div class="tarjeta" style="display:flex; align-items:center; gap:16px;">
               <div id="reporteDona" class="dona" style="width:64px; height:64px;"></div>
-              <p id="reporteResumenTexto" class="texto-suave" style="margin:0;"></p>
+              <p id="reporteResumenTexto" class="texto-suave" style="margin:0;flex:1;"></p>
+              <span id="reporteSemaforo"></span>
         </div>
-    
+        <div id="semaforo-reporte-detalle"></div>
+
         <div class="tarjeta"><p id="reporteStatsTexto" class="texto-suave" style="margin:0;"></p></div><button class="btn btn-coral" onclick="descargarMiExcel()">⬇ Descargar mi Excel</button>
-    
+
         <div id="listaReporteManager" class="lista-managers" style="margin-top:16px;"></div>
     </div>
   </div>
@@ -224,6 +226,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

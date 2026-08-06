@@ -183,7 +183,7 @@ function renderPanelAdmin() {
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
                         : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-admin-${m.id}"></div>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -340,15 +340,87 @@ function clientesPorDia(clientes) {
         return dias > 0 ? visitados / dias : 0;
 }
 
-function fechaEstimadaFin(clientes) {
+// Version "cruda" de fechaEstimadaFin: en vez de devolver el texto ya formateado,
+// devuelve el objeto Date (para poder compararlo con la fecha de vencimiento), o el
+// texto 'completado' si ya no quedan pendientes, o null si todavia no hay ritmo
+// suficiente para estimar (cero visitas hechas todavia).
+function fechaEstimadaFinRaw(clientes) {
         const pendientes = clientes.filter(c => !c.fechaHoraLlegada && c.estatus !== 'retirado').length;
-        if (pendientes === 0) return 'Completado';
+        if (pendientes === 0) return 'completado';
         const ritmo = clientesPorDia(clientes);
         if (ritmo <= 0) return null;
         const diasRestantes = Math.ceil(pendientes / ritmo);
         const fecha = new Date();
+        fecha.setHours(0, 0, 0, 0);
         fecha.setDate(fecha.getDate() + diasRestantes);
-        return fecha.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+        return fecha;
+}
+
+function fechaEstimadaFin(clientes) {
+        const raw = fechaEstimadaFinRaw(clientes);
+        if (raw === 'completado') return 'Completado';
+        if (raw === null) return null;
+        return raw.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ============================================================
+// SEMAFORO DE CUMPLIMIENTO (verde / amarillo / rojo / gris)
+// ============================================================
+// Compara, para cada manager, cuantas visitas le faltan y a que ritmo esta trabajando
+// contra la fecha limite (vencimiento) que le puso el admin. Asi se ve de un vistazo
+// quien va bien, quien esta en riesgo y quien va mal, sin tener que leer los numeros.
+//  - Gris: el manager no tiene fecha de vencimiento puesta, no se puede medir.
+//  - Verde: al ritmo actual, termina a tiempo (o ya termino).
+//  - Amarillo: al ritmo actual, terminaria hasta 3 dias despues de la fecha limite.
+//  - Rojo: terminaria mas de 3 dias tarde, o la fecha limite ya paso y le quedan clientes.
+function calcularSemaforo(manager, clientes) {
+        if (!manager.fechaVencimiento) {
+                return { color: 'gris', texto: `${manager.nombre} no tiene fecha límite puesta todavía, así que no se puede saber si va bien o mal. Ponle un vencimiento para poder medirlo.` };
+        }
+        const vencimiento = new Date(manager.fechaVencimiento + 'T00:00:00');
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        const pendientes = clientes.filter(c => !c.fechaHoraLlegada && c.estatus !== 'retirado').length;
+        const vencimientoTxt = formatearFechaSimple(manager.fechaVencimiento);
+
+        if (pendientes === 0) {
+                return { color: 'verde', texto: `${manager.nombre} ya terminó toda su cartera. Fecha límite: ${vencimientoTxt}.` };
+        }
+
+        const diasHastaVencimiento = Math.round((vencimiento - hoy) / 86400000);
+        const finEstimadoRaw = fechaEstimadaFinRaw(clientes);
+
+        if (finEstimadoRaw === null) {
+                // Todavia no ha registrado ninguna visita, no hay ritmo para calcular.
+                if (diasHastaVencimiento < 0) {
+                        return { color: 'rojo', texto: `${manager.nombre}: la fecha límite (${vencimientoTxt}) ya pasó y todavía tiene ${pendientes} clientes pendientes, sin ninguna visita registrada.` };
+                }
+                return { color: 'amarillo', texto: `${manager.nombre} todavía no registra visitas. Le quedan ${pendientes} clientes y ${diasHastaVencimiento} día${diasHastaVencimiento === 1 ? '' : 's'} hasta la fecha límite (${vencimientoTxt}).` };
+        }
+
+        const finEstimadoTxt = finEstimadoRaw.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+        const diasDiferencia = Math.round((finEstimadoRaw - vencimiento) / 86400000); // positivo = terminaria tarde
+
+        if (diasDiferencia <= 0) {
+                return { color: 'verde', texto: `${manager.nombre} va bien: al ritmo actual terminaría el ${finEstimadoTxt}, a tiempo para la fecha límite (${vencimientoTxt}). Le quedan ${pendientes} clientes.` };
+        }
+        if (diasDiferencia <= 3) {
+                return { color: 'amarillo', texto: `${manager.nombre} está en riesgo: al ritmo actual terminaría el ${finEstimadoTxt}, ${diasDiferencia} día${diasDiferencia === 1 ? '' : 's'} después de la fecha límite (${vencimientoTxt}). Le quedan ${pendientes} clientes.` };
+        }
+        return { color: 'rojo', texto: `${manager.nombre} va mal: al ritmo actual terminaría el ${finEstimadoTxt}, ${diasDiferencia} días después de la fecha límite (${vencimientoTxt}). Le quedan ${pendientes} clientes.` };
+}
+
+// Dibuja el circulo de color (semaforo) listo para insertar en una fila. Al tocarlo,
+// despliega/oculta el detalle en el contenedor indicado (mismo patron que los graficos 3D).
+function semaforoHTML(manager, clientes, contenedorId) {
+        const { color, texto } = calcularSemaforo(manager, clientes);
+        const textoSeguro = texto.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<span class="semaforo semaforo-${color}" title="${texto.replace(/"/g,'&quot;')}" onclick="toggleSemaforoDetalle(this, '${contenedorId}', '${textoSeguro}')"></span>`;
+}
+
+function toggleSemaforoDetalle(el, contenedorId, texto) {
+        const cont = document.getElementById(contenedorId);
+        if (!cont) return;
+        cont.innerHTML = cont.innerHTML ? '' : `<p class="texto-suave" style="margin:6px 0 0;">🚦 ${texto}</p>`;
 }
 
 function tasaEfectividad(clientes) {
@@ -510,7 +582,7 @@ function verEquipo(oficinaId, origen) {
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
                                         : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-equipo-${m.id}"></div>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -1322,6 +1394,8 @@ function verMiReporte(managerId, origen) {
 
         document.getElementById('reporteDona').setAttribute('style', `width:64px;height:64px;border-radius:50%;flex-shrink:0;${donaEstilo(clientesM)}`);
         document.getElementById('reporteResumenTexto').textContent = `${clientesM.length} clientes en total - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} no volver`;
+        const reporteSemaforoEl = document.getElementById('reporteSemaforo');
+        if (reporteSemaforoEl) reporteSemaforoEl.innerHTML = semaforoHTML(manager, clientesM, 'semaforo-reporte-detalle');
 
         const efectividad = tasaEfectividad(clientesM);
         const dias = diasActivaCartera(clientesM);

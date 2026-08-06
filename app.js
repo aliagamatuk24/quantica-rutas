@@ -597,6 +597,131 @@ async function cargarCartera() {
         }
 }
 
+// ============================================================
+// GRAFICOS 3D PARA LOS REPORTES DE EXCEL
+// ============================================================
+// Aclaracion tecnica: Excel no permite insertar "graficos nativos editables" desde el
+// navegador con las librerias gratuitas que tenemos disponibles (eso es una funcion de
+// pago). En su lugar, dibujamos el grafico 3D nosotros mismos como una imagen (con un
+// <canvas>, el mismo truco que usan las apps para hacer capturas) y esa imagen se inserta
+// dentro de la hoja de Excel. Se ve igual de bien, solo que no se puede "editar" el
+// grafico dentro de Excel como si fuera una tabla dinamica.
+
+// Aclara u oscurece un color hexadecimal (#RRGGBB). porcentaje positivo = mas claro,
+// negativo = mas oscuro. Se usa para simular las caras de arriba/lado de cada barra 3D.
+function sombrearColor(hex, porcentaje) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    let r = (num >> 16) + Math.round(255 * (porcentaje / 100));
+    let g = ((num >> 8) & 0x00FF) + Math.round(255 * (porcentaje / 100));
+    let b = (num & 0x0000FF) + Math.round(255 * (porcentaje / 100));
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    return '#' + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+}
+
+// Dibuja un grafico de barras 3D (isometrico) con los 4 numeros de siempre: gestionados,
+// por gestionar, citas y retirados. Devuelve una imagen PNG en base64 lista para insertar
+// en Excel. "datos" es un arreglo de { etiqueta, valor, color }.
+function dibujarGrafico3D(datos, titulo) {
+    const ancho = 560, alto = 340;
+    const canvas = document.createElement('canvas');
+    canvas.width = ancho; canvas.height = alto;
+    const ctx = canvas.getContext('2d');
+
+    // Fondo blanco (para que se vea bien insertado sobre las celdas de Excel)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, ancho, alto);
+
+    // Titulo
+    ctx.fillStyle = '#1E293B';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(titulo, ancho / 2, 34);
+
+    const depth = 22; // que tan "profunda" se ve cada barra
+    const margenInferior = 54;
+    const margenSuperior = 60;
+    const baseY = alto - margenInferior;
+    const maxValor = Math.max(1, ...datos.map(d => d.valor));
+    const altoMaxBarra = baseY - margenSuperior - depth;
+
+    const anchoBarra = 78;
+    const espacio = (ancho - depth - datos.length * anchoBarra) / (datos.length + 1);
+
+    datos.forEach((d, i) => {
+        const x0 = espacio + i * (anchoBarra + espacio);
+        const h = Math.max(2, (d.valor / maxValor) * altoMaxBarra);
+        const yTop = baseY - h;
+
+        const colorFrente = d.color;
+        const colorArriba = sombrearColor(d.color, 28);
+        const colorLado = sombrearColor(d.color, -18);
+
+        // Cara lateral (derecha)
+        ctx.fillStyle = colorLado;
+        ctx.beginPath();
+        ctx.moveTo(x0 + anchoBarra, yTop);
+        ctx.lineTo(x0 + anchoBarra + depth, yTop - depth);
+        ctx.lineTo(x0 + anchoBarra + depth, baseY - depth);
+        ctx.lineTo(x0 + anchoBarra, baseY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cara de arriba
+        ctx.fillStyle = colorArriba;
+        ctx.beginPath();
+        ctx.moveTo(x0, yTop);
+        ctx.lineTo(x0 + depth, yTop - depth);
+        ctx.lineTo(x0 + anchoBarra + depth, yTop - depth);
+        ctx.lineTo(x0 + anchoBarra, yTop);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cara frontal
+        ctx.fillStyle = colorFrente;
+        ctx.fillRect(x0, yTop, anchoBarra, h);
+
+        // Numero arriba de la barra
+        ctx.fillStyle = '#1E293B';
+        ctx.font = 'bold 17px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(d.valor), x0 + anchoBarra / 2 + depth / 2, yTop - depth - 8);
+
+        // Etiqueta abajo
+        ctx.fillStyle = '#475569';
+        ctx.font = '12px Arial';
+        const palabras = d.etiqueta.split(' ');
+        if (palabras.length > 1 && d.etiqueta.length > 12) {
+            ctx.fillText(palabras.slice(0, Math.ceil(palabras.length / 2)).join(' '), x0 + anchoBarra / 2, baseY + 18);
+            ctx.fillText(palabras.slice(Math.ceil(palabras.length / 2)).join(' '), x0 + anchoBarra / 2, baseY + 33);
+        } else {
+            ctx.fillText(d.etiqueta, x0 + anchoBarra / 2, baseY + 18);
+        }
+    });
+
+    // Linea base
+    ctx.strokeStyle = '#CBD5E1';
+    ctx.beginPath();
+    ctx.moveTo(0, baseY + 1);
+    ctx.lineTo(ancho, baseY + 1);
+    ctx.stroke();
+
+    return canvas.toDataURL('image/png');
+}
+
+// Arma los 4 datos de siempre (gestionados/por gestionar/citas/retirados) en el formato
+// que espera dibujarGrafico3D, usando los mismos colores que la dona de la app.
+function datosGraficoDeClientes(clientes) {
+    const { porGestionar, enSeguimiento, citas, retirados } = contarGestion(clientes);
+    return [
+        { etiqueta: 'Por gestionar', valor: porGestionar, color: '#8A8F98' },
+        { etiqueta: 'En seguimiento', valor: enSeguimiento, color: '#7C5CFF' },
+        { etiqueta: 'Citas', valor: citas, color: '#FFB020' },
+        { etiqueta: 'Retirados', valor: retirados, color: '#EF4444' }
+    ];
+}
+
 // Pone primero a los clientes gestionados mas recientemente (para que en el Excel
 // no queden salteados entre cientos de pendientes). Los que nunca se han tocado
 // quedan al final, en el mismo orden en que se cargaron.
@@ -609,17 +734,72 @@ function ordenarPorGestionReciente(clientes) {
     });
 }
 
-function exportarExcelGeneral() {
-      const wb = XLSX.utils.book_new();
+// Quita caracteres que Excel no permite en el nombre de una pestaña (\ / ? * [ ] :)
+// y la recorta a 31 caracteres (el limite de Excel).
+function nombreHojaSeguro(nombre) {
+    return (nombre || 'Manager').replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 31) || 'Manager';
+}
+
+// Escribe una tabla (arreglo de objetos, como los que arma XLSX.utils.json_to_sheet)
+// empezando en la fila indicada, con encabezados en negrita y columnas con ancho
+// automatico. Devuelve la siguiente fila libre despues de la tabla.
+function escribirTablaDesdeObjetos(hoja, filaInicio, filas) {
+    if (!filas || filas.length === 0) return filaInicio;
+    const columnas = Object.keys(filas[0]);
+    const filaEncabezado = hoja.getRow(filaInicio);
+    columnas.forEach((col, i) => {
+          const celda = filaEncabezado.getCell(i + 1);
+          celda.value = col;
+          celda.font = { bold: true };
+    });
+    filas.forEach((obj, idx) => {
+          const fila = hoja.getRow(filaInicio + 1 + idx);
+          columnas.forEach((col, i) => { fila.getCell(i + 1).value = obj[col] ?? ''; });
+    });
+    columnas.forEach((col, i) => {
+          const anchoMax = Math.max(col.length, ...filas.map(f => String(f[col] ?? '').length));
+          hoja.getColumn(i + 1).width = Math.min(40, Math.max(10, anchoMax + 2));
+    });
+    return filaInicio + 1 + filas.length;
+}
+
+// Inserta el grafico 3D de un canjunto de clientes en la esquina superior izquierda de
+// la hoja, dejando espacio libre debajo para la tabla de datos. Devuelve la fila donde
+// puede empezar la tabla sin toparse con la imagen.
+function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo) {
+    const imagenBase64 = dibujarGrafico3D(datosGraficoDeClientes(clientes), titulo);
+    const idImagen = wb.addImage({ base64: imagenBase64, extension: 'png' });
+    hoja.addImage(idImagen, { tl: { col: 0, row: 0 }, ext: { width: 560, height: 340 } });
+    return 19; // ~340px de imagen a ~20px por fila, mas un respiro
+}
+
+// Convierte el workbook de ExcelJS en un archivo .xlsx descargable y lo dispara.
+async function descargarWorkbook(wb, nombreArchivo) {
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function exportarExcelGeneral() {
       const resumen = [];
       const consolidado = [];
       const hojasPorManager = [];
+      let clientesDeTodoElEquipo = [];
 
       estado.managers.forEach(m => {
               const clientesM = ordenarPorGestionReciente(estado.clientes.filter(c => c.managerId === m.id));
+              clientesDeTodoElEquipo = clientesDeTodoElEquipo.concat(clientesM);
 
               hojasPorManager.push({
-                        nombre: m.nombre.slice(0, 28) || 'Manager',
+                        nombre: m.nombre,
+                        clientes: clientesM,
                         filas: clientesM.map(c => ({
                                     Nombre: c.nombre,
                                     Direccion: c.direccion,
@@ -663,18 +843,31 @@ function exportarExcelGeneral() {
               });
       });
 
-      const hojaConsolidada = XLSX.utils.json_to_sheet(consolidado);
-      XLSX.utils.book_append_sheet(wb, hojaConsolidada, 'Todos los clientes');
+      const wb = new ExcelJS.Workbook();
+      const nombresUsados = new Set(['Todos los clientes', 'Resumen']);
 
-      const hojaResumen = XLSX.utils.json_to_sheet(resumen);
-      XLSX.utils.book_append_sheet(wb, hojaResumen, 'Resumen');
+      // Hoja Resumen: grafico 3D grupal (todo el equipo junto) + la tabla de siempre.
+      const hojaResumen = wb.addWorksheet('Resumen');
+      const filaTablaResumen = insertarGrafico3DEnHoja(wb, hojaResumen, clientesDeTodoElEquipo, 'Equipo completo');
+      escribirTablaDesdeObjetos(hojaResumen, filaTablaResumen, resumen);
 
+      // Hoja con todos los clientes de todos los managers juntos (sin grafico, es la
+      // hoja "de trabajo" para filtrar/buscar).
+      const hojaConsolidada = wb.addWorksheet('Todos los clientes');
+      escribirTablaDesdeObjetos(hojaConsolidada, 1, consolidado);
+
+      // Una hoja por manager, cada una con su propio grafico 3D arriba de su tabla.
       hojasPorManager.forEach(h => {
-              const hoja = XLSX.utils.json_to_sheet(h.filas);
-              XLSX.utils.book_append_sheet(wb, hoja, h.nombre);
+              let nombreHoja = nombreHojaSeguro(h.nombre);
+              let sufijo = 2;
+              while (nombresUsados.has(nombreHoja)) { nombreHoja = nombreHojaSeguro(h.nombre).slice(0, 28) + ' ' + sufijo; sufijo++; }
+              nombresUsados.add(nombreHoja);
+              const hoja = wb.addWorksheet(nombreHoja);
+              const filaTabla = insertarGrafico3DEnHoja(wb, hoja, h.clientes, h.nombre);
+              escribirTablaDesdeObjetos(hoja, filaTabla, h.filas);
       });
 
-      XLSX.writeFile(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
+      await descargarWorkbook(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ============================================================
@@ -959,7 +1152,7 @@ function volverDeReporte() {
         }
 }
 
-function descargarMiExcel() {
+async function descargarMiExcel() {
       const manager = estado.managers.find(m => m.id === managerReporteId);
       if (!manager) return;
       const clientesM = ordenarPorGestionReciente(estado.clientes.filter(c => c.managerId === manager.id));
@@ -975,8 +1168,9 @@ function descargarMiExcel() {
               'Observaciones cita': c.citaObservaciones || '',
               Observaciones: c.observaciones || ''
       }));
-      const wb = XLSX.utils.book_new();
-      const hoja = XLSX.utils.json_to_sheet(filas);
-      XLSX.utils.book_append_sheet(wb, hoja, manager.nombre.slice(0, 28) || 'Mi reporte');
-      XLSX.writeFile(wb, `Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const wb = new ExcelJS.Workbook();
+      const hoja = wb.addWorksheet(nombreHojaSeguro(manager.nombre) || 'Mi reporte');
+      const filaTabla = insertarGrafico3DEnHoja(wb, hoja, clientesM, manager.nombre);
+      escribirTablaDesdeObjetos(hoja, filaTabla, filas);
+      await descargarWorkbook(wb, `Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }

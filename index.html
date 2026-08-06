@@ -185,6 +185,11 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js?v=3"></script>
+<!-- ExcelJS: a diferencia de la libreria xlsx de arriba (que solo sabe leer/escribir datos),
+     esta si puede insertar imagenes dentro del archivo de Excel. La usamos solo para los
+     reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
+     carteras que suben los managers. -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

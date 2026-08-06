@@ -95,15 +95,18 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 
 /* Los 3 selects (dia/mes/anio) del selector de vencimiento: chicos, confiables,
    nunca fallan al escribir (a diferencia del input type=date nativo). */
-.selector-vencimiento { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-suave); flex-wrap: wrap; }
+.selector-vencimiento { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-suave); flex-wrap: nowrap; white-space: nowrap; }
 .select-mini {
   font-size: 12px;
-  padding: 3px 4px;
+  padding: 3px 2px;
   border-radius: 6px;
   border: 1px solid var(--borde);
   background: #fff;
   font-family: 'Inter', sans-serif;
 }
+.select-mini.select-dia { width: 48px; }
+.select-mini.select-mes { width: 58px; }
+.select-mini.select-anio { width: 56px; }
 
 .input, .textarea {
   width: 100%;

@@ -229,7 +229,7 @@ function opcionesDia(seleccionado) {
     return html;
 }
 function opcionesMes(seleccionado) {
-    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     let html = '<option value="">Mes</option>';
     meses.forEach((nombre, i) => {
         const v = String(i + 1).padStart(2, '0');
@@ -252,9 +252,9 @@ function selectorVencimientoHTML(managerId, fechaYMD, deshabilitado) {
     const anio = partes[0] || '', mes = partes[1] || '', dia = partes[2] || '';
     const dis = deshabilitado ? 'disabled' : '';
     return `<span class="selector-vencimiento" data-manager="${managerId}">Vencimiento:
-        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesDia(dia)}</select>
-        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesMes(mes)}</select>
-        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesAnio(anio)}</select>
+        <select class="select-mini select-dia" onchange="recalcularVencimiento(this)" ${dis}>${opcionesDia(dia)}</select>
+        <select class="select-mini select-mes" onchange="recalcularVencimiento(this)" ${dis}>${opcionesMes(mes)}</select>
+        <select class="select-mini select-anio" onchange="recalcularVencimiento(this)" ${dis}>${opcionesAnio(anio)}</select>
     </span>`;
 }
 // Se dispara cuando el usuario cambia cualquiera de los 3 selects. Solo guarda

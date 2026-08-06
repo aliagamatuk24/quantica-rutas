@@ -50,6 +50,22 @@ body::before {
   z-index: -1;
 }
 
+/* Fondo personalizado por oficina: cuando un manager (o su equipo) abre su link y su
+   oficina tiene una imagen asignada por el admin, esta clase se agrega al body (ver
+   aplicarFondoPersonalizado() en app.js) y reemplaza el degradado + marca de agua de
+   arriba por la imagen elegida. Como esta regla viene despues en el archivo y apunta al
+   mismo elemento (body), no hace falta !important para que gane. */
+body.fondo-personalizado-activo {
+  background-image: var(--fondo-personalizado);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+body.fondo-personalizado-activo::before {
+  opacity: 0;
+}
+
 /* Logo de aquafeel solutions, fijo en una esquina, en todas las pantallas */
 .marca-aquafeel {
   position: fixed;

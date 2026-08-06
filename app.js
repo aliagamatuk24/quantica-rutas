@@ -182,7 +182,7 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
                     return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
@@ -641,6 +641,126 @@ function detenerCargaCartera() {
         document.getElementById('btnDetenerCarga').style.display = 'none';
 }
 
+// ============================================================
+// FONDO PERSONALIZADO POR OFICINA
+// ============================================================
+// El admin puede subir una imagen de fondo para cada manager de oficina. Esa imagen se
+// aplica automaticamente cuando ESE manager, o cualquiera de sus sub-managers, abre su
+// propio link (nunca afecta el panel del admin ni a otras oficinas). La imagen se guarda
+// en un almacen aparte del store principal (ver netlify/functions/imagen-fondo.js); en el
+// manager solo se guarda "fondoVersion" (un numero) para saber si tiene imagen o no, y
+// para forzar que el navegador siempre pida la version mas nueva.
+let managerFondoActual = null;
+
+function abrirModalFondo(managerId, nombre) {
+        managerFondoActual = managerId;
+        const m = estado.managers.find(x => x.id === managerId);
+        document.getElementById('nombreManagerFondo').textContent = nombre;
+        document.getElementById('archivoFondo').value = '';
+        const preview = document.getElementById('previewFondo');
+        const btnQuitar = document.getElementById('btnQuitarFondo');
+        if (m && m.fondoVersion) {
+                    preview.innerHTML = `<img src="/api/imagen-fondo?manager=${managerId}&v=${m.fondoVersion}" style="max-width:100%;max-height:160px;border-radius:10px;display:block;margin-top:8px;">`;
+                    btnQuitar.style.display = '';
+        } else {
+                    preview.innerHTML = `<p class="texto-suave" style="margin-top:8px;">Esta oficina todavía no tiene una imagen de fondo personalizada.</p>`;
+                    btnQuitar.style.display = 'none';
+        }
+        mostrarModal('modalFondo');
+}
+
+function cerrarModalFondo() {
+        cerrarModal('modalFondo');
+}
+
+// Convierte el archivo elegido a base64 y lo manda al servidor. La imagen queda asociada
+// al id del manager de oficina; luego, cuando ese manager (o alguien de su equipo) abre su
+// link, se aplica automaticamente como fondo de su pantalla (ver aplicarFondoPersonalizado).
+async function subirFondoOficina() {
+        if (!managerFondoActual) return;
+        const input = document.getElementById('archivoFondo');
+        const archivo = input.files[0];
+        if (!archivo) { alert('Elige primero una imagen.'); return; }
+        if (archivo.size > 6 * 1024 * 1024) { alert('La imagen es muy pesada (mas de 6MB). Usa una mas liviana.'); return; }
+
+        const btn = document.getElementById('btnGuardarFondo');
+        btn.disabled = true;
+        btn.textContent = 'Subiendo...';
+        try {
+                    const base64 = await new Promise((resolve, reject) => {
+                                const lector = new FileReader();
+                                lector.onload = () => resolve(lector.result.split(',')[1]);
+                                lector.onerror = reject;
+                                lector.readAsDataURL(archivo);
+                    });
+                    const r = await fetch(`/api/imagen-fondo?manager=${managerFondoActual}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ base64, contentType: archivo.type || 'image/jpeg' })
+                    });
+                    if (!r.ok) { alert('No se pudo subir la imagen, intenta de nuevo.'); return; }
+
+                    const managerId = managerFondoActual;
+                    const ok = await actualizarEstado((est) => {
+                                const mm = est.managers.find(x => x.id === managerId);
+                                if (mm) mm.fondoVersion = (mm.fondoVersion || 0) + 1;
+                    });
+                    if (!ok) { alert('La imagen se subio pero no se pudo guardar la referencia, intenta de nuevo.'); return; }
+
+                    alert('Listo, la imagen de fondo fue guardada.');
+                    cerrarModalFondo();
+                    renderPanelAdmin();
+        } catch (e) {
+                    alert('No se pudo subir la imagen, revisa tu conexion e intenta de nuevo.');
+        } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Guardar imagen';
+        }
+}
+
+async function quitarFondoOficina() {
+        if (!managerFondoActual) return;
+        if (!confirm('¿Seguro que quieres quitar la imagen de fondo de esta oficina?')) return;
+        const managerId = managerFondoActual;
+        try {
+                    await fetch(`/api/imagen-fondo?manager=${managerId}`, { method: 'DELETE' });
+        } catch (e) { /* si falla el borrado del archivo, igual quitamos la referencia abajo */ }
+        const ok = await actualizarEstado((est) => {
+                    const mm = est.managers.find(x => x.id === managerId);
+                    if (mm) mm.fondoVersion = null;
+        });
+        if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+        cerrarModalFondo();
+        renderPanelAdmin();
+}
+
+// Encuentra la "oficina" (manager con esOficina=true) a la que pertenece un manager: el
+// mismo si el es la oficina, o su supervisor si es un sub-manager. Sirve para saber de
+// donde sacar el fondo personalizado a aplicar.
+function oficinaDe(manager) {
+        if (!manager) return null;
+        if (manager.esOficina) return manager;
+        if (manager.supervisorId) {
+                    const sup = estado.managers.find(x => x.id === manager.supervisorId);
+                    if (sup && sup.esOficina) return sup;
+        }
+        return null;
+}
+
+// Aplica (o quita) el fondo personalizado de la oficina del manager que acaba de abrir su
+// link. Se llama SOLO desde prepararSaludo(), que a su vez solo se llama cuando alguien
+// entra con un link de manager (?manager=...) — el panel del admin nunca pasa por aqui,
+// asi que la vista del admin nunca se ve afectada.
+function aplicarFondoPersonalizado(manager) {
+        document.body.classList.remove('fondo-personalizado-activo');
+        const oficina = oficinaDe(manager);
+        if (oficina && oficina.fondoVersion) {
+                    const url = `/api/imagen-fondo?manager=${oficina.id}&v=${oficina.fondoVersion}`;
+                    document.body.style.setProperty('--fondo-personalizado', `url("${url}")`);
+                    document.body.classList.add('fondo-personalizado-activo');
+        }
+}
+
 // Convierte una direccion de texto en coordenadas (lat/lng).
 // Primero intenta con el geocodificador del Census Bureau de EE.UU. (gratis, sin limite,
 // hecho especificamente para direcciones de EE.UU.). Si no encuentra la direccion, usa
@@ -1002,6 +1122,23 @@ function ordenarPorGestionReciente(clientes) {
     });
 }
 
+// Ordena los clientes en el mismo orden en que la app arma la ruta del dia (guardado en
+// c.ordenRuta cada vez que un manager toca "Comenzar mi ruta" — ver construirRuta()).
+// Esto es lo que se usa para los Excel exportables, para que el numero de la columna
+// "Orden" corresponda exactamente al recorrido que la app calculo, del 1 hasta el ultimo,
+// sin importar si el cliente ya fue gestionado o todavia esta pendiente. Los clientes que
+// todavia no tienen ese numero (por ejemplo, recien cargados y el manager no ha abierto su
+// ruta todavia) quedan al final, en el orden en que se cargaron.
+function ordenarPorRuta(clientes) {
+    return [...clientes].sort((a, b) => {
+          const oa = a.ordenRuta, ob = b.ordenRuta;
+          if (oa != null && ob != null) return oa - ob;
+          if (oa != null) return -1;
+          if (ob != null) return 1;
+          return 0;
+    });
+}
+
 // Quita caracteres que Excel no permite en el nombre de una pestaña (\ / ? * [ ] :)
 // y la recorta a 31 caracteres (el limite de Excel).
 function nombreHojaSeguro(nombre) {
@@ -1062,13 +1199,13 @@ async function exportarExcelGeneral() {
       let clientesDeTodoElEquipo = [];
 
       estado.managers.forEach(m => {
-              const clientesM = ordenarPorGestionReciente(estado.clientes.filter(c => c.managerId === m.id));
+              const clientesM = ordenarPorRuta(estado.clientes.filter(c => c.managerId === m.id));
               clientesDeTodoElEquipo = clientesDeTodoElEquipo.concat(clientesM);
 
               hojasPorManager.push({
                         nombre: m.nombre,
                         clientes: clientesM,
-                        filas: clientesM.map(c => ({
+                        filas: clientesM.map((c, idx) => ({
                                     Nombre: c.nombre,
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
@@ -1079,7 +1216,8 @@ async function exportarExcelGeneral() {
                                     'Telefono cita': c.citaTelefono || '',
                                     'Observaciones cita': c.citaObservaciones || '',
                                     'Hora de visita': c.horaLlegada || '',
-                                    Observaciones: c.observaciones || ''
+                                    Observaciones: c.observaciones || '',
+                                    Orden: idx + 1
                         }))
               });
 
@@ -1094,7 +1232,7 @@ async function exportarExcelGeneral() {
                         'Vencimiento': formatearFechaSimple(m.fechaVencimiento)
               });
 
-              clientesM.forEach(c => {
+              clientesM.forEach((c, idx) => {
                         consolidado.push({
                                     Manager: m.nombre,
                                     Nombre: c.nombre,
@@ -1106,7 +1244,8 @@ async function exportarExcelGeneral() {
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',
                                     'Observaciones cita': c.citaObservaciones || '',
-                                    Observaciones: c.observaciones || ''
+                                    Observaciones: c.observaciones || '',
+                                    Orden: idx + 1
                         });
               });
       });
@@ -1142,6 +1281,7 @@ async function exportarExcelGeneral() {
 // VISTA MANAGER — SALUDO
 // ============================================================
 function prepararSaludo(manager) {
+        aplicarFondoPersonalizado(manager);
         document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
         const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
         document.getElementById('saludoResumen').textContent =
@@ -1227,6 +1367,18 @@ async function construirRuta(manager) {
   rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
     indiceClienteActual = completados.length;
     renderClienteActual();
+
+    // Guardamos el numero de orden (1, 2, 3...) de esta ruta en cada cliente, para que
+    // despues los Excel exportables (general y "Mi Excel") puedan mostrar los clientes en
+    // este mismo orden. No bloqueamos la pantalla esperando a que termine de guardarse: el
+    // manager ya puede seguir trabajando mientras esto se guarda de fondo.
+    const ordenPorId = {};
+    rutaOrdenada.forEach((c, i) => { ordenPorId[c.id] = i + 1; });
+    actualizarEstado((est) => {
+        est.clientes.forEach(c => {
+            if (ordenPorId[c.id] !== undefined) c.ordenRuta = ordenPorId[c.id];
+        });
+    });
 }
 
 // ============================================================
@@ -1437,8 +1589,8 @@ function volverDeReporte() {
 async function descargarMiExcel() {
       const manager = estado.managers.find(m => m.id === managerReporteId);
       if (!manager) return;
-      const clientesM = ordenarPorGestionReciente(estado.clientes.filter(c => c.managerId === manager.id));
-      const filas = clientesM.map(c => ({
+      const clientesM = ordenarPorRuta(estado.clientes.filter(c => c.managerId === manager.id));
+      const filas = clientesM.map((c, idx) => ({
               Nombre: c.nombre,
               Direccion: c.direccion,
               Telefono: c.telefono,
@@ -1448,7 +1600,8 @@ async function descargarMiExcel() {
               'Hora cita': c.citaHora || '',
               'Telefono cita': c.citaTelefono || '',
               'Observaciones cita': c.citaObservaciones || '',
-              Observaciones: c.observaciones || ''
+              Observaciones: c.observaciones || '',
+              Orden: idx + 1
       }));
       const wb = new ExcelJS.Workbook();
       const hoja = wb.addWorksheet(nombreHojaSeguro(manager.nombre) || 'Mi reporte');

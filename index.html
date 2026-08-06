@@ -129,6 +129,21 @@
   </div>
 </div>
 
+<!-- MODAL: FONDO PERSONALIZADO DE OFICINA -->
+<div id="modalFondo" class="modal-fondo">
+  <div class="modal-caja">
+    <h3>Fondo de <span id="nombreManagerFondo"></span></h3>
+    <p class="texto-suave">Esta imagen se verá como fondo de pantalla solo para esta oficina y sus sub-managers, cuando abran su propio link. No afecta a otras oficinas ni a tu panel de administrador.</p>
+    <input type="file" id="archivoFondo" class="input" accept="image/*">
+    <div id="previewFondo"></div>
+    <div class="modal-botones">
+      <button class="btn-texto" onclick="cerrarModalFondo()">Cancelar</button>
+      <button id="btnQuitarFondo" class="btn-texto" style="display:none;color:var(--rojo);" onclick="quitarFondoOficina()">Quitar imagen</button>
+      <button id="btnGuardarFondo" class="btn btn-teal" onclick="subirFondoOficina()">Guardar imagen</button>
+    </div>
+  </div>
+</div>
+
 <!-- PANTALLA: MANAGER - CUENTA DESACTIVADA -->
 <div id="pantallaCuentaDesactivada" class="pantalla">
   <div class="selector-wrap">
@@ -226,6 +241,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

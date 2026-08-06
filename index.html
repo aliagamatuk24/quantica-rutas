@@ -73,6 +73,26 @@
       <p class="texto-suave">Descarga el estatus de todos los clientes de todos tus managers en un solo Excel.</p>
       <button class="btn btn-coral" onclick="exportarExcelGeneral()">⬇ Descargar Excel general</button>
     </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta-header">
+        <h3>Respaldos</h3>
+      </div>
+      <p class="texto-suave">Cada hora se guarda una copia completa de todos los managers y clientes, por si algo se borra sin querer.</p>
+      <button class="btn btn-violeta" onclick="verRespaldos()">🕐 Ver respaldos</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RESPALDOS -->
+<div id="modalRespaldos" class="modal-fondo">
+  <div class="modal-caja modal-grande">
+    <h3>Respaldos automáticos</h3>
+    <p class="texto-suave">Se guarda una copia completa cada hora. Elige la copia de justo antes de que algo se borrara, para traerla de vuelta.</p>
+    <div id="listaRespaldos" class="lista-managers"></div>
+    <div class="modal-botones">
+      <button class="btn-texto" onclick="cerrarModal('modalRespaldos')">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -202,6 +222,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

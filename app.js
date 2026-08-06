@@ -187,6 +187,54 @@ function renderPanelAdmin() {
         }).join('');
 }
 
+// ============================================================
+// RESPALDOS AUTOMATICOS
+// ============================================================
+// Cada hora, un robot (funcion programada en el servidor) guarda una copia completa de
+// todos los managers y clientes. Aqui solo mostramos esa lista y permitimos restaurar
+// una copia si algo se borro por error. Ver netlify/functions/backup-scheduled.js y
+// netlify/functions/backups.js para el detalle de como se guardan.
+async function verRespaldos() {
+        const cont = document.getElementById('listaRespaldos');
+        cont.innerHTML = `<p class="texto-suave">Cargando respaldos...</p>`;
+        mostrarModal('modalRespaldos');
+        try {
+                const r = await fetch('/api/backups', { cache: 'no-store' });
+                const data = await r.json();
+                const respaldos = data.respaldos || [];
+                if (respaldos.length === 0) {
+                        cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🕐</div>Todavia no hay respaldos guardados. El primero se hace dentro de la primera hora despues de activar esta funcion.</div>`;
+                        return;
+                }
+                cont.innerHTML = respaldos.map(rp => {
+                        const fecha = rp.respaldadoEn ? formatearFechaHora(rp.respaldadoEn) : rp.clave;
+                        const esExtra = rp.clave.startsWith('antes-de-restaurar-');
+                        return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${fecha}${esExtra ? ' <span class="chip-link" style="cursor:default;">Automatico antes de un restaurar</span>' : ''}</span><span class="fila-manager-meta">${rp.totalManagers} managers - ${rp.totalClientes} clientes</span></div><div class="fila-manager-acciones"><button class="btn-chico btn-vaciar" onclick="restaurarRespaldo('${rp.clave}', '${fecha.replace(/'/g,"")}')">Restaurar esta copia</button></div></div>`;
+                }).join('');
+        } catch (e) {
+                cont.innerHTML = `<p class="texto-suave">No se pudo cargar la lista de respaldos. Revisa tu conexion e intenta de nuevo.</p>`;
+        }
+}
+
+async function restaurarRespaldo(clave, fechaTexto) {
+        if (!confirm(`¿Seguro que quieres restaurar la copia de "${fechaTexto}"? Esto va a reemplazar TODOS los managers y clientes actuales por como estaban en ese momento. Se guarda un respaldo extra de como estaba todo justo antes, por si acaso.`)) return;
+        if (!confirm(`Ultima confirmacion: se van a reemplazar todos los datos actuales por el respaldo de "${fechaTexto}". ¿Continuar?`)) return;
+        try {
+                const r = await fetch('/api/backups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clave })
+                });
+                if (!r.ok) { alert('No se pudo restaurar, intenta de nuevo.'); return; }
+                alert('Listo, los datos fueron restaurados.');
+                cerrarModal('modalRespaldos');
+                await cargarEstado();
+                renderPanelAdmin();
+        } catch (e) {
+                alert('No se pudo restaurar, revisa tu conexion e intenta de nuevo.');
+        }
+}
+
 // Cuenta clientes por lo que de verdad importa: si ya se les dio seguimiento o no.
 // "Gestionado" = ya se le marco algo (sigue activa, no atendio, cita o no volver),
 // sin importar si el caso sigue abierto. "Por gestionar" = todavia nadie lo ha tocado.

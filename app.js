@@ -178,8 +178,8 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -440,8 +440,8 @@ function verEquipo(oficinaId, origen) {
                                     const bloqueado = managersBloqueados.has(m.id);
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                                        : `<button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
+                                        : `<button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -792,6 +792,46 @@ function datosGraficoDeClientes(clientes) {
     ];
 }
 
+// Convierte el grafico 3D (la misma imagen que se usa en el Excel) en un <img> listo
+// para mostrar dentro de la app, no solo para exportar.
+function graficoImgHTML(clientes, titulo) {
+    const dataUrl = dibujarGrafico3D(datosGraficoDeClientes(clientes), titulo);
+    return `<img src="${dataUrl}" alt="Grafico 3D ${titulo}" style="width:100%;max-width:560px;display:block;margin:10px auto 0;border-radius:12px;box-shadow:0 2px 10px rgba(30,41,59,0.15);">`;
+}
+
+// Muestra u oculta el grafico 3D de un manager o de un grupo completo, justo debajo del
+// boton que se toco. Al tocar el mismo boton de nuevo, se oculta (para no dejar la
+// pantalla muy larga si hay muchos managers). "modo" puede ser:
+//  - 'individual': un solo manager (managerId indica cual)
+//  - 'admin': todos los managers del negocio (vista del administrador)
+//  - 'equipo': todos los sub-managers de la oficina que se esta viendo en "Mi equipo"
+function toggleGrafico3D(btn, contenedorId, managerId, modo) {
+    const cont = document.getElementById(contenedorId);
+    if (!cont) return;
+    if (cont.innerHTML) {
+        cont.innerHTML = '';
+        btn.textContent = '📊 Ver estadísticas 3D';
+        return;
+    }
+    let clientes, titulo;
+    if (modo === 'admin') {
+        clientes = estado.clientes;
+        titulo = 'Todos los managers';
+    } else if (modo === 'equipo') {
+        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
+        clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
+        titulo = 'Mi equipo';
+    } else {
+        const m = estado.managers.find(x => x.id === managerId);
+        clientes = estado.clientes.filter(c => c.managerId === managerId);
+        titulo = m ? m.nombre : 'Manager';
+    }
+    cont.innerHTML = clientes.length > 0
+        ? graficoImgHTML(clientes, titulo)
+        : `<p class="texto-suave" style="margin:6px 0 0;">Todavia no hay clientes cargados para mostrar estadisticas.</p>`;
+    btn.textContent = '📊 Ocultar estadísticas 3D';
+}
+
 // Pone primero a los clientes gestionados mas recientemente (para que en el Excel
 // no queden salteados entre cientos de pendientes). Los que nunca se han tocado
 // quedan al final, en el mismo orden en que se cargaron.
@@ -952,6 +992,11 @@ function prepararSaludo(manager) {
                         : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
         const btnEquipo = document.getElementById('btnMiEquipo');
         if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
+        // Estadisticas 3D del propio manager, visibles apenas entra a la app cada dia,
+        // antes de empezar a trabajar (sin tener que tocar ningun boton).
+        const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
+        const contGrafico = document.getElementById('saludoGrafico3D');
+        if (contGrafico) contGrafico.innerHTML = clientesM.length > 0 ? graficoImgHTML(clientesM, 'Tu avance') : '';
 }
 
 async function iniciarJornada() {

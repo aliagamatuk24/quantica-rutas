@@ -61,6 +61,8 @@
         <h3>Managers</h3>
         <button class="btn-chico btn-violeta" onclick="abrirModalNuevoManager()">+ Nuevo manager</button>
       </div>
+      <button class="btn-chico btn-ambar" style="margin-bottom:10px;" onclick="toggleGrafico3D(this, 'grafico3dGrupoAdmin', null, 'admin')">📊 Ver estadísticas 3D (todos)</button>
+      <div id="grafico3dGrupoAdmin"></div>
       <div id="listaManagers" class="lista-managers"></div>
     </div>
 
@@ -118,12 +120,13 @@
     </div>
     <h1 id="saludoNombre">¡Hola!</h1>
     <p class="subt" id="saludoResumen">Cargando tu ruta de hoy...</p>
+    <div id="saludoGrafico3D" style="width:100%;"></div>
     <button class="btn btn-teal" onclick="iniciarJornada()">Comenzar mi ruta</button>
     <button class="btn btn-violeta" onclick="verMiReporte()">Ver mi cartera y avance</button><button id="btnMiEquipo" class="btn btn-coral" style="display:none;" onclick="verEquipo(managerActivoId, 'saludo')">Mi equipo</button>
   </div>
 </div>
 
-<div id="pantallaEquipo" class="pantalla"><header class="topbar topbar-violeta"><div class="topbar-title"><span class="topbar-emoji">🧑‍💼</span><div><h2>Mi equipo</h2><p id="equipoNombreOficina">Manager de oficina</p></div></div><button class="btn-icono" onclick="volverDeEquipo()" title="Cerrar">✕</button></header><div class="contenido"><div class="tarjeta" style="display:flex; align-items:center; gap:16px;"><div id="equipoDona" class="dona" style="width:64px; height:64px;"></div><p id="equipoResumenTexto" class="texto-suave" style="margin:0;"></p></div><div class="tarjeta"><p id="equipoStatsTexto" class="texto-suave" style="margin:0;"></p></div><div id="listaEquipo" class="lista-managers" style="margin-top:16px;"></div></div></div><!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
+<div id="pantallaEquipo" class="pantalla"><header class="topbar topbar-violeta"><div class="topbar-title"><span class="topbar-emoji">🧑‍💼</span><div><h2>Mi equipo</h2><p id="equipoNombreOficina">Manager de oficina</p></div></div><button class="btn-icono" onclick="volverDeEquipo()" title="Cerrar">✕</button></header><div class="contenido"><div class="tarjeta" style="display:flex; align-items:center; gap:16px;"><div id="equipoDona" class="dona" style="width:64px; height:64px;"></div><p id="equipoResumenTexto" class="texto-suave" style="margin:0;"></p></div><div class="tarjeta"><p id="equipoStatsTexto" class="texto-suave" style="margin:0;"></p></div><button class="btn-chico btn-ambar" style="margin:0 0 10px;" onclick="toggleGrafico3D(this, 'grafico3dGrupoEquipo', null, 'equipo')">📊 Ver estadísticas 3D del equipo</button><div id="grafico3dGrupoEquipo"></div><div id="listaEquipo" class="lista-managers" style="margin-top:16px;"></div></div></div><!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
 <div id="pantallaRuta" class="pantalla">
   <header class="topbar topbar-teal">
     <div class="topbar-title">
@@ -190,6 +193,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

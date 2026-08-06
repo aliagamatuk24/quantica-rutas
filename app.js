@@ -703,7 +703,11 @@ async function subirFondoOficina() {
                     const managerId = managerFondoActual;
                     const ok = await actualizarEstado((est) => {
                                 const mm = est.managers.find(x => x.id === managerId);
-                                if (mm) mm.fondoVersion = (mm.fondoVersion || 0) + 1;
+                                // Usamos la hora exacta como numero de version (en vez de sumar 1 al valor
+                                // anterior) para que sea seguro repetir esta operacion: si actualizarEstado
+                                // reintenta por una falsa alarma de verificacion, cada intento vuelve a poner
+                                // un numero valido y mas nuevo, en lugar de ir sumando de mas cada vez.
+                                if (mm) mm.fondoVersion = Date.now();
                     });
                     if (!ok) { alert('La imagen se subio pero no se pudo guardar la referencia, intenta de nuevo.'); return; }
 

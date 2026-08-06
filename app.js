@@ -14,6 +14,28 @@ let mapaLeaflet = null;
 let managerReporteId = null; // manager que se esta viendo en la pantalla "Mi reporte"
 let origenReporte = 'saludo'; // de donde se abrio el reporte: 'saludo' o 'admin'
 
+// Managers que tienen ahora mismo una operacion de guardado en curso (borrar cartera,
+// cargar cartera nueva o eliminar el manager). Mientras un manager esta aqui, se le
+// deshabilitan esos botones en pantalla para que no se puedan lanzar dos operaciones
+// al mismo tiempo sobre el mismo manager (eso es lo que causaba que una cartera borrada
+// "resucitara" al cargar una lista nueva justo despues).
+let managersBloqueados = new Set();
+
+function refrescarPantallasManagers() {
+    if (document.getElementById('pantallaAdmin').classList.contains('activa')) renderPanelAdmin();
+    if (oficinaActivaId && document.getElementById('pantallaEquipo').classList.contains('activa')) verEquipo(oficinaActivaId, origenEquipo);
+}
+
+function bloquearManager(managerId) {
+    managersBloqueados.add(managerId);
+    refrescarPantallasManagers();
+}
+
+function desbloquearManager(managerId) {
+    managersBloqueados.delete(managerId);
+    refrescarPantallasManagers();
+}
+
 // ---------- Utilidades ----------
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -153,7 +175,11 @@ function renderPanelAdmin() {
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
                     const supervisorTxt = m.supervisorId ? ` - Supervisor: ${(estado.managers.find(x => x.id === m.supervisorId) || {}).nombre || '—'}` : '';
                     const opcionesOficinas = estado.managers.filter(x => x.esOficina && x.id !== m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)"> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)"><option value="">Sin supervisor</option>${opcionesOficinas}</select><label style="display:flex;align-items:center;gap:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)"></label></span></div><div class="fila-manager-acciones"><button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button></div></div>`;
+                    const bloqueado = managersBloqueados.has(m.id);
+                    const acciones = bloqueado
+                        ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select><label style="display:flex;align-items:center;gap:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}></label></span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
         }).join('');
 }
 
@@ -228,28 +254,35 @@ function subManagersDe(oficinaId) {
 async function vaciarCartera(managerId, nombre) {
     const clientesM = estado.clientes.filter(c => c.managerId === managerId);
     if (clientesM.length === 0) { alert('Ese manager ya no tiene clientes cargados.'); return; }
+    if (managersBloqueados.has(managerId)) { alert('Ya hay una operacion en curso para este manager, espera a que termine.'); return; }
     if (!confirm(`¿Seguro que quieres borrar los ${clientesM.length} clientes de "${nombre}"? Esto no se puede deshacer.`)) return;
     if (!confirm(`Última confirmación: se van a borrar ${clientesM.length} clientes de "${nombre}" para siempre.`)) return;
+    // Bloqueamos este manager (se deshabilitan sus botones en pantalla) mientras se guarda
+    // el borrado, para que no se pueda lanzar una carga de cartera nueva al mismo tiempo
+    // y choquen los dos guardados (eso era lo que hacia que la cartera borrada reapareciera).
+    bloquearManager(managerId);
     const ok = await actualizarEstado((est) => {
           est.clientes = est.clientes.filter(c => c.managerId !== managerId);
     });
     if (!ok) alert('No se pudo borrar, intenta de nuevo.');
-    renderPanelAdmin();
+    desbloquearManager(managerId);
 }
 
 async function eliminarManager(managerId, nombre) {
         const clientesM = estado.clientes.filter(c => c.managerId === managerId);
+        if (managersBloqueados.has(managerId)) { alert('Ya hay una operacion en curso para este manager, espera a que termine.'); return; }
         const mensaje = clientesM.length > 0
             ? `Seguro que quieres eliminar a "${nombre}" para siempre? Tambien se borraran sus ${clientesM.length} clientes cargados y el link que le compartiste dejara de funcionar. Esto no se puede deshacer.`
                     : `Seguro que quieres eliminar a "${nombre}" para siempre? El link que le compartiste dejara de funcionar. Esto no se puede deshacer.`;
         if (!confirm(mensaje)) return;
         if (!confirm(`Ultima confirmacion: se va a eliminar al manager "${nombre}" para siempre.`)) return;
+        bloquearManager(managerId);
         const ok = await actualizarEstado((est) => {
                     est.managers = est.managers.filter(m => m.id !== managerId);
                     est.clientes = est.clientes.filter(c => c.managerId !== managerId);
         });
         if (!ok) alert('No se pudo eliminar, intenta de nuevo.');
-        renderPanelAdmin();
+        desbloquearManager(managerId);
 }
 
 function copiarLink(link) { navigator.clipboard.writeText(link).then(() => alert(`Link copiado: ${link} - enviaselo a tu manager por WhatsApp.`)).catch(() => prompt('No se pudo copiar automatico. Copia este link a mano:', link)); }
@@ -339,7 +372,11 @@ function verEquipo(oficinaId, origen) {
                     : subs.map(m => {
                                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:flex;align-items:center;gap:4px;margin-top:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)"></span></div><div class="fila-manager-acciones"><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button></div></div>`;
+                                    const bloqueado = managersBloqueados.has(m.id);
+                                    const acciones = bloqueado
+                                        ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
+                                        : `<button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:flex;align-items:center;gap:4px;margin-top:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}></span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -359,6 +396,7 @@ let cargaCarteraToken = 0;
 let cargaCarteraActiva = false;
 
 function abrirModalCartera(managerId, nombre) {
+        if (managersBloqueados.has(managerId)) { alert('Ya hay una operacion en curso para este manager, espera a que termine.'); return; }
         managerCarteraActual = managerId;
         document.getElementById('nombreManagerCartera').textContent = nombre;
         document.getElementById('textoCartera').value = '';
@@ -535,9 +573,14 @@ async function cargarCartera() {
 
         if (miToken !== cargaCarteraToken) { cargaCarteraActiva = false; return; }
 
+        // Bloqueamos este manager mientras se guarda la lista nueva, para que no se pueda
+        // borrar su cartera al mismo tiempo desde otra pantalla/pestaña (evita el choque
+        // que hacia reaparecer clientes ya borrados).
+        bloquearManager(managerDestino);
         await actualizarEstado((est) => {
                     nuevosClientes.forEach(c => est.clientes.push(c));
         });
+        desbloquearManager(managerDestino);
 
         cargaCarteraActiva = false;
         document.getElementById('btnCargarCartera').style.display = '';
@@ -738,7 +781,7 @@ function renderClienteActual() {
                           if (m && !m.jornadaFin) m.jornadaFin = new Date().toISOString();
                 });
         }
-        cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🎉</div><h3>¡Terminaste tu ruta de hoy!</h3><p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Ver clientes visitados</button>` : ''}</div>`;
+        cont.innerHTML = `<div class="tarjeta vacio"><div class="vacio-emoji">🎉</div><h3>¡Terminaste tu ruta de hoy!</h3><p class="texto-suave">Buen trabajo. Cuando tengas cartera nueva, aparecerá aquí sola.</p>${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Ver clientes visitados</button>` : ''}</div>`;
         return;
   }
 

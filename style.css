@@ -7,10 +7,12 @@
     --ambar: #FFB020;
     --verde: #22C55E;
     --rojo: #EF4444;
-    --bg: #F1F5F9;
+    --bg: #0B1220;
     --tarjeta-bg: #FFFFFF;
     --ink: #1E293B;
     --ink-suave: #64748B;
+    --ink-clara: #F1F5F9;
+    --ink-suave-clara: #94A3B8;
     --borde: #E2E8F0;
 }
 
@@ -19,22 +21,27 @@
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background: var(--bg);
+  /* Fondo oscuro elegante: un degradado tipo estudio fotografico (mas claro arriba,
+     se oscurece hacia las orillas) en vez de un color plano, para que se sienta mas
+     premium. Las tarjetas siguen blancas encima para que el contenido sea facil de leer. */
+  background: radial-gradient(ellipse 1100px 700px at 50% -5%, #1B2A4A 0%, #0F1830 45%, #0B1220 75%, #060A14 100%);
+  background-attachment: fixed;
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   position: relative;
 }
 
-/* Marca de agua de fondo: la arroba con el nombre, bien tenue para no estorbar la lectura */
+/* Marca de agua de fondo: la arroba con el nombre, con fondo transparente y las
+   orillas difuminadas (sin recuadro visible), bien tenue para no estorbar la lectura */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url('bg-omar.jpg');
+  background-image: url('bg-omar.webp');
   background-repeat: no-repeat;
-  background-position: center 40%;
-  background-size: min(60vmin, 480px);
-  opacity: 0.06;
+  background-position: center 38%;
+  background-size: min(65vmin, 540px);
+  opacity: 0.14;
   pointer-events: none;
   z-index: -1;
 }
@@ -76,9 +83,11 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 }
 .logo-mark { margin-bottom: 4px; }
 .logo-chico svg { width: 48px; height: 48px; }
-.selector-wrap h1 { font-size: 28px; color: var(--ink); }
-.subt { color: var(--ink-suave); margin: 0 0 8px; font-size: 15px; }
-.hint { font-size: 13px; color: var(--ink-suave); margin-top: 8px; }
+/* Estas pantallas (selector, login, saludo) no tienen tarjeta blanca detras: el texto
+   flota directo sobre el nuevo fondo oscuro, asi que usamos las variantes claras. */
+.selector-wrap h1 { font-size: 28px; color: var(--ink-clara); }
+.subt { color: var(--ink-suave-clara); margin: 0 0 8px; font-size: 15px; }
+.hint { font-size: 13px; color: var(--ink-suave-clara); margin-top: 8px; }
 
 .input, .textarea {
   width: 100%;
@@ -133,6 +142,9 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
   cursor: pointer;
   padding: 8px;
 }
+/* Dentro de selector-wrap (pantallas sin tarjeta blanca) el boton de texto tambien
+   necesita el tono claro para leerse sobre el fondo oscuro. */
+.selector-wrap .btn-texto { color: var(--ink-suave-clara); }
 
 .btn-icono {
   background: rgba(255,255,255,0.2);

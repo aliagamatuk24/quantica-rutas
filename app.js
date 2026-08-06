@@ -130,6 +130,10 @@ window.addEventListener('DOMContentLoaded', async () => {
                           if (managerId) {
                                 const m = estado.managers.find(x => x.id === managerId);
                                 if (m) {
+                                        if (m.activo === false) {
+                                                mostrarPantalla('pantallaCuentaDesactivada');
+                                                return;
+                                        }
                                         managerActivoId = managerId;
                                         prepararSaludo(m);
                                         mostrarPantalla('pantallaSaludo');
@@ -178,8 +182,8 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-admin-${m.id}"></div>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -380,6 +384,22 @@ async function toggleEsOficina(managerId, valor) {
         const ok = await actualizarEstado((est) => {
                     const m = est.managers.find(x => x.id === managerId);
                     if (m) m.esOficina = valor;
+        });
+        if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
+        renderPanelAdmin();
+}
+
+// Activa o desactiva la cuenta de un manager (de oficina o general) sin borrar sus datos.
+// Un manager desactivado no puede entrar a su link ni comenzar su ruta hasta que lo
+// reactives; sus clientes y su historial se quedan intactos, solo se bloquea el acceso.
+async function toggleActivo(managerId, valor) {
+        if (managersBloqueados.has(managerId)) { alert('Ya hay una operacion en curso para este manager, espera a que termine.'); return; }
+        const m = estado.managers.find(x => x.id === managerId);
+        const nombre = m ? m.nombre : 'este manager';
+        if (valor === false && !confirm(`¿Seguro que quieres desactivar a "${nombre}"? No podra entrar a su cuenta hasta que la reactives. Sus clientes y su historial no se borran.`)) return;
+        const ok = await actualizarEstado((est) => {
+                    const mm = est.managers.find(x => x.id === managerId);
+                    if (mm) mm.activo = valor;
         });
         if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
         renderPanelAdmin();
@@ -1000,7 +1020,14 @@ function prepararSaludo(manager) {
 }
 
 async function iniciarJornada() {
+    // Volvemos a traer el estado mas reciente antes de arrancar, por si el administrador
+    // desactivo esta cuenta mientras el manager ya tenia la app abierta.
+    await cargarEstado();
     let manager = estado.managers.find(m => m.id === managerActivoId);
+    if (!manager || manager.activo === false) {
+        mostrarPantalla('pantallaCuentaDesactivada');
+        return;
+    }
     if (!manager.jornadaInicio || huboVisitaAyer(manager)) {
           await actualizarEstado((est) => {
                   const m = est.managers.find(x => x.id === managerActivoId);

@@ -352,8 +352,14 @@ async function crearManager() {
         const esOficina = document.getElementById('nuevoManagerEsOficina').checked;
         const supervisorId = document.getElementById('nuevoManagerSupervisor').value || null;
         const nuevoId = uid();
+        // "if (!existe) push" en vez de "push" a secas: actualizarEstado puede reintentar
+        // varias veces si la verificacion posterior al guardado tarda mas de la cuenta
+        // (aunque el guardado si haya funcionado). Sin este chequeo, cada reintento
+        // agregaba OTRA copia del mismo manager -> aparecian managers duplicados.
         const ok = await actualizarEstado((est) => {
-                    est.managers.push({ id: nuevoId, nombre, activo: true, jornadaInicio: null, jornadaFin: null, esOficina, supervisorId });
+                    if (!est.managers.some(m => m.id === nuevoId)) {
+                                est.managers.push({ id: nuevoId, nombre, activo: true, jornadaInicio: null, jornadaFin: null, esOficina, supervisorId });
+                    }
         });
         document.getElementById('nombreNuevoManager').value = '';
         document.getElementById('nuevoManagerEsOficina').checked = false;
@@ -636,8 +642,13 @@ async function cargarCartera() {
         // borrar su cartera al mismo tiempo desde otra pantalla/pestaña (evita el choque
         // que hacia reaparecer clientes ya borrados).
         bloquearManager(managerDestino);
+        // Mismo chequeo "if (!existe) push" que en crearManager: si actualizarEstado
+        // reintenta (verificacion lenta), no queremos volver a agregar los mismos
+        // clientes otra vez -> eso hacia que una cartera nueva se viera duplicada o
+        // "mezclada" con mas clientes de los que en realidad se cargaron.
         await actualizarEstado((est) => {
-                    nuevosClientes.forEach(c => est.clientes.push(c));
+                    const idsExistentes = new Set(est.clientes.map(c => c.id));
+                    nuevosClientes.forEach(c => { if (!idsExistentes.has(c.id)) est.clientes.push(c); });
         });
         desbloquearManager(managerDestino);
 

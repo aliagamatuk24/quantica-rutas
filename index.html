@@ -113,6 +113,8 @@
   <div class="modal-caja modal-grande">
     <h3>Cargar cartera a <span id="nombreManagerCartera"></span></h3>
 
+    <p id="avisoCarteraExistente" class="texto-suave" style="display:none;background:#FEF3C7;color:#7A5C0A;padding:10px 12px;border-radius:10px;font-weight:600;"></p>
+
     <p class="texto-suave"><b>Opción 1:</b> sube un Excel con columnas <b>Nombre, Dirección, Ciudad-Estado-Zip</b> (en ese orden, primera fila con encabezados). Teléfono y observaciones se llenan después, cuando el manager visita al cliente.</p>p>
       <input type="file" id="archivoCarteraExcel" class="input" accept=".xlsx,.xls,.csv">
   
@@ -222,6 +224,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

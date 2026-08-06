@@ -540,6 +540,18 @@ function abrirModalCartera(managerId, nombre) {
         cargaCarteraActiva = false;
         document.getElementById('btnCargarCartera').style.display = '';
         document.getElementById('btnDetenerCarga').style.display = 'none';
+        // Avisamos claramente si este manager ya tiene clientes: cargar una lista nueva
+        // SIEMPRE reemplaza la cartera actual completa (no se suma a lo que ya habia).
+        const yaTiene = estado.clientes.filter(c => c.managerId === managerId).length;
+        const aviso = document.getElementById('avisoCarteraExistente');
+        if (aviso) {
+                    if (yaTiene > 0) {
+                                aviso.style.display = '';
+                                aviso.textContent = `⚠️ ${nombre} ya tiene ${yaTiene} cliente${yaTiene === 1 ? '' : 's'} cargado${yaTiene === 1 ? '' : 's'}. Al cargar la lista nueva, esa cartera actual sera REEMPLAZADA por completo (no se suma).`;
+                    } else {
+                                aviso.style.display = 'none';
+                    }
+        }
         mostrarModal('modalCartera');
 }
 
@@ -711,11 +723,16 @@ async function cargarCartera() {
         // borrar su cartera al mismo tiempo desde otra pantalla/pestaña (evita el choque
         // que hacia reaparecer clientes ya borrados).
         bloquearManager(managerDestino);
-        // Mismo chequeo "if (!existe) push" que en crearManager: si actualizarEstado
-        // reintenta (verificacion lenta), no queremos volver a agregar los mismos
-        // clientes otra vez -> eso hacia que una cartera nueva se viera duplicada o
-        // "mezclada" con mas clientes de los que en realidad se cargaron.
+        // "Cargar cartera" SIEMPRE reemplaza lo que ese manager ya tenia: en el mismo
+        // guardado se quita su lista anterior y se mete la lista nueva. Antes esto solo
+        // agregaba clientes encima de los que ya hubiera, y si no se usaba "Borrar" a mano
+        // justo antes (o esa lista errada nunca se borraba), la cartera vieja se quedaba
+        // mezclada para siempre con la nueva. Al hacerlo todo en un solo paso, ya no hay
+        // forma de que conviva lo viejo con lo nuevo.
+        // El chequeo "if (!existe) push" se mantiene por si actualizarEstado reintenta
+        // (verificacion lenta): evita que la MISMA lista nueva se duplique en el reintento.
         await actualizarEstado((est) => {
+                    est.clientes = est.clientes.filter(c => c.managerId !== managerDestino);
                     const idsExistentes = new Set(est.clientes.map(c => c.id));
                     nuevosClientes.forEach(c => { if (!idsExistentes.has(c.id)) est.clientes.push(c); });
         });

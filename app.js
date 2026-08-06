@@ -179,7 +179,7 @@ function renderPanelAdmin() {
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
                         : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}<button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select><label style="display:flex;align-items:center;gap:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}></label></span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
         }).join('');
 }
 
@@ -211,6 +211,65 @@ function formatearFechaSimple(fechaYMD) {
     if (!fechaYMD) return '';
     const d = new Date(fechaYMD + 'T00:00:00');
     return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ============================================================
+// SELECTOR DE FECHA DE VENCIMIENTO (3 selects: dia/mes/anio)
+// ============================================================
+// Antes usabamos <input type="date">, pero el campo del "año" de ese input nativo
+// no confirma bien el valor cuando se escriben los digitos uno por uno (se quedaba
+// guardando cosas como "0020" en vez de "2026"). Con 3 selects normales esto no puede
+// fallar: el usuario elige de una lista, nunca escribe numeros a mano.
+function opcionesDia(seleccionado) {
+    let html = '<option value="">Día</option>';
+    for (let d = 1; d <= 31; d++) {
+        const v = String(d).padStart(2, '0');
+        html += `<option value="${v}" ${seleccionado === v ? 'selected' : ''}>${d}</option>`;
+    }
+    return html;
+}
+function opcionesMes(seleccionado) {
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    let html = '<option value="">Mes</option>';
+    meses.forEach((nombre, i) => {
+        const v = String(i + 1).padStart(2, '0');
+        html += `<option value="${v}" ${seleccionado === v ? 'selected' : ''}>${nombre}</option>`;
+    });
+    return html;
+}
+function opcionesAnio(seleccionado) {
+    const anioActual = new Date().getFullYear();
+    let html = '<option value="">Año</option>';
+    for (let a = anioActual; a <= anioActual + 6; a++) {
+        html += `<option value="${a}" ${String(seleccionado) === String(a) ? 'selected' : ''}>${a}</option>`;
+    }
+    return html;
+}
+// Genera los 3 selects para un manager. "deshabilitado" los apaga mientras ese
+// manager tiene una operacion en curso (ver managersBloqueados).
+function selectorVencimientoHTML(managerId, fechaYMD, deshabilitado) {
+    const partes = (fechaYMD || '').split('-'); // "YYYY-MM-DD"
+    const anio = partes[0] || '', mes = partes[1] || '', dia = partes[2] || '';
+    const dis = deshabilitado ? 'disabled' : '';
+    return `<span class="selector-vencimiento" data-manager="${managerId}">Vencimiento:
+        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesDia(dia)}</select>
+        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesMes(mes)}</select>
+        <select class="select-mini" onchange="recalcularVencimiento(this)" ${dis}>${opcionesAnio(anio)}</select>
+    </span>`;
+}
+// Se dispara cuando el usuario cambia cualquiera de los 3 selects. Solo guarda
+// cuando los 3 tienen un valor elegido (o cuando los 3 quedan vacios, para borrar
+// la fecha); si esta a medias, espera a que termine de elegir.
+function recalcularVencimiento(elCambiado) {
+    const contenedor = elCambiado.closest('.selector-vencimiento');
+    const managerId = contenedor.getAttribute('data-manager');
+    const selects = contenedor.querySelectorAll('select');
+    const dia = selects[0].value, mes = selects[1].value, anio = selects[2].value;
+    if (dia && mes && anio) {
+        actualizarVencimiento(managerId, `${anio}-${mes}-${dia}`);
+    } else if (!dia && !mes && !anio) {
+        actualizarVencimiento(managerId, '');
+    }
 }
 
 function diasActivaCartera(clientes) {
@@ -376,7 +435,7 @@ function verEquipo(oficinaId, origen) {
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
                                         : `<button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:flex;align-items:center;gap:4px;margin-top:4px;">Vencimiento: <input type="date" value="${m.fechaVencimiento || ''}" style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="actualizarVencimiento('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}></span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');

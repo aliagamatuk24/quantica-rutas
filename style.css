@@ -1,10 +1,14 @@
 :root {
-    --teal: #2563EB;
-    --teal-dark: #1D4ED8;
-    --violeta: #334155;
-    --violeta-dark: #1E293B;
-    --coral: #0284C7;
-    --ambar: #FFB020;
+    /* Paleta "seria": plomo oscuro para casi todos los botones neutrales, y un solo
+       dorado como acento para la accion mas destacada de cada pantalla. Verde y rojo
+       se mantienen porque significan exito/peligro y no conviene cambiarles el color. */
+    --teal: #2B3542;
+    --teal-dark: #1C242E;
+    --violeta: #1E2530;
+    --violeta-dark: #12171F;
+    --coral: #3E4A5A;
+    --ambar: #C9A227;
+    --ambar-dark: #A9860F;
     --verde: #22C55E;
     --rojo: #EF4444;
     --bg: #0B1220;
@@ -89,6 +93,18 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 .subt { color: var(--ink-suave-clara); margin: 0 0 8px; font-size: 15px; }
 .hint { font-size: 13px; color: var(--ink-suave-clara); margin-top: 8px; }
 
+/* Los 3 selects (dia/mes/anio) del selector de vencimiento: chicos, confiables,
+   nunca fallan al escribir (a diferencia del input type=date nativo). */
+.selector-vencimiento { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ink-suave); flex-wrap: wrap; }
+.select-mini {
+  font-size: 12px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--borde);
+  background: #fff;
+  font-family: 'Inter', sans-serif;
+}
+
 .input, .textarea {
   width: 100%;
   padding: 14px 16px;
@@ -170,9 +186,9 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
   top: 0;
   z-index: 10;
 }
-.topbar-admin { background: linear-gradient(135deg, var(--violeta), #475569); }
-.topbar-teal { background: linear-gradient(135deg, var(--teal), #3B82F6); }
-.topbar-violeta { background: linear-gradient(135deg, var(--violeta), #475569); }
+.topbar-admin { background: linear-gradient(135deg, var(--violeta), #3E4A5A); }
+.topbar-teal { background: linear-gradient(135deg, var(--violeta), #3E4A5A); }
+.topbar-violeta { background: linear-gradient(135deg, var(--violeta), #3E4A5A); }
 .topbar-title { display: flex; align-items: center; gap: 10px; }
 .topbar-emoji { font-size: 26px; }
 .topbar h2 { font-size: 17px; }
@@ -208,8 +224,8 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 .fila-manager-acciones { display: flex; gap: 6px; }
 .chip-link {
   font-size: 11px;
-  background: #DBEAFE;
-  color: var(--violeta-dark);
+  background: #F3E8C7;
+  color: #7A5C0A;
   padding: 4px 8px;
   border-radius: 8px;
   cursor: pointer;
@@ -333,11 +349,11 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 
 /* ---- Dona de avance y boton vaciar (panel admin) ---- */
 .dona {
-    width: 40px;
-    height: 40px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     flex-shrink: 0;
-    margin-right: 12px;
+    margin-right: 14px;
 }
 .btn-vaciar {
     background: #EF4444;

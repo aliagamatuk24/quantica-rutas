@@ -1210,18 +1210,19 @@ async function exportarExcelGeneral() {
                         nombre: m.nombre,
                         clientes: clientesM,
                         filas: clientesM.map((c, idx) => ({
+                                    Orden: idx + 1,
+                                    Codigo: c.codigo || '',
+                                    Estatus: c.estatus,
                                     Nombre: c.nombre,
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
-                                    Estatus: c.estatus,
                             'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',
                                     'Observaciones cita': c.citaObservaciones || '',
                                     'Hora de visita': c.horaLlegada || '',
-                                    Observaciones: c.observaciones || '',
-                                    Orden: idx + 1
+                                    Observaciones: c.observaciones || ''
                         }))
               });
 
@@ -1239,17 +1240,18 @@ async function exportarExcelGeneral() {
               clientesM.forEach((c, idx) => {
                         consolidado.push({
                                     Manager: m.nombre,
+                                    Orden: idx + 1,
+                                    Codigo: c.codigo || '',
+                                    Estatus: c.estatus,
                                     Nombre: c.nombre,
                                     Direccion: c.direccion,
                                     Telefono: c.telefono,
-                                    Estatus: c.estatus,
                                     'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
                                     'Hora cita': c.citaHora || '',
                                     'Telefono cita': c.citaTelefono || '',
                                     'Observaciones cita': c.citaObservaciones || '',
-                                    Observaciones: c.observaciones || '',
-                                    Orden: idx + 1
+                                    Observaciones: c.observaciones || ''
                         });
               });
       });
@@ -1600,17 +1602,18 @@ async function descargarMiExcel() {
       if (!manager) return;
       const clientesM = ordenarPorRuta(estado.clientes.filter(c => c.managerId === manager.id));
       const filas = clientesM.map((c, idx) => ({
+              Orden: idx + 1,
+              Codigo: c.codigo || '',
+              Estatus: c.estatus,
               Nombre: c.nombre,
               Direccion: c.direccion,
               Telefono: c.telefono,
-              Estatus: c.estatus,
               'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
               'Fecha cita': c.citaFecha || '',
               'Hora cita': c.citaHora || '',
               'Telefono cita': c.citaTelefono || '',
               'Observaciones cita': c.citaObservaciones || '',
-              Observaciones: c.observaciones || '',
-              Orden: idx + 1
+              Observaciones: c.observaciones || ''
       }));
       const wb = new ExcelJS.Workbook();
       const hoja = wb.addWorksheet(nombreHojaSeguro(manager.nombre) || 'Mi reporte');

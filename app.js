@@ -182,7 +182,7 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
                     return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
@@ -815,6 +815,110 @@ function abrirModalFondoVideoPropio() {
         if (!m) return;
         abrirModalFondoVideo(m.id, m.nombre);
 }
+function abrirModalFondoAudioPropio() {
+        const m = estado.managers.find(x => x.id === managerActivoId);
+        if (!m) return;
+        abrirModalFondoAudio(m.id, m.nombre);
+}
+
+// ============================================================
+// SONIDO DE BIENVENIDA POR OFICINA
+// ============================================================
+// Igual que el video: solo guardamos la direccion web (URL) de un audio corto (unos 8
+// segundos) que el admin (o el propio manager de oficina) ya subio a algun lado. No pasa
+// por nuestro servidor, asi que no hay limite de tamaño real.
+let managerFondoAudioActual = null;
+
+function abrirModalFondoAudio(managerId, nombre) {
+        managerFondoAudioActual = managerId;
+        const m = estado.managers.find(x => x.id === managerId);
+        document.getElementById('nombreManagerFondoAudio').textContent = nombre;
+        const input = document.getElementById('urlFondoAudio');
+        input.value = (m && m.fondoAudioUrl) || '';
+        const btnQuitar = document.getElementById('btnQuitarFondoAudio');
+        btnQuitar.style.display = (m && m.fondoAudioUrl) ? '' : 'none';
+        mostrarModal('modalFondoAudio');
+}
+
+function cerrarModalFondoAudio() {
+        cerrarModal('modalFondoAudio');
+}
+
+async function guardarFondoAudio() {
+        if (!managerFondoAudioActual) return;
+        const input = document.getElementById('urlFondoAudio');
+        const url = input.value.trim();
+        if (!url) { alert('Pega primero el link del audio.'); return; }
+        try { new URL(url); } catch (e) { alert('Ese link no parece valido. Debe empezar con https://'); return; }
+
+        const managerId = managerFondoAudioActual;
+        const btn = document.getElementById('btnGuardarFondoAudio');
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+        try {
+                    const ok = await actualizarEstado((est) => {
+                                const mm = est.managers.find(x => x.id === managerId);
+                                if (mm) mm.fondoAudioUrl = url;
+                    });
+                    if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+                    alert('Listo, el audio de bienvenida fue guardado.');
+                    cerrarModalFondoAudio();
+                    refrescarTrasCambioFondo(managerId);
+        } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Guardar audio';
+        }
+}
+
+async function quitarFondoAudio() {
+        if (!managerFondoAudioActual) return;
+        if (!confirm('¿Seguro que quieres quitar el audio de bienvenida de esta oficina?')) return;
+        const managerId = managerFondoAudioActual;
+        const ok = await actualizarEstado((est) => {
+                    const mm = est.managers.find(x => x.id === managerId);
+                    if (mm) mm.fondoAudioUrl = null;
+        });
+        if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+        cerrarModalFondoAudio();
+        refrescarTrasCambioFondo(managerId);
+}
+
+// Recuerda para cuales managers ya sonó el audio de bienvenida EN ESTA VISITA (esta pestaña
+// abierta), para no repetirlo cada vez que se refresca la pantalla de saludo (por ejemplo
+// justo despues de cambiar el fondo desde el mismo boton de "Mi equipo").
+const audiosBienvenidaYaSonaron = new Set();
+
+// Intenta reproducir el audio de bienvenida de la oficina del manager (si tiene uno
+// configurado). Los navegadores bloquean por seguridad el sonido automatico si la persona
+// no interactuo antes con la pagina, asi que si el intento automatico falla, dejamos un
+// "oyente" invisible (sin ningun boton) que reproduce el audio en cuanto la persona toque o
+// haga clic en cualquier parte de la pantalla por primera vez.
+function reproducirAudioBienvenida(manager) {
+        const oficina = oficinaDe(manager);
+        if (!oficina || !oficina.fondoAudioUrl) return;
+        if (audiosBienvenidaYaSonaron.has(manager.id)) return;
+        audiosBienvenidaYaSonaron.add(manager.id);
+
+        const audio = new Audio(oficina.fondoAudioUrl);
+        // Por si el archivo subido no dura los ~8 segundos esperados, lo cortamos igual a
+        // los 8 segundos para evitar un sonido de fondo interminable por error.
+        setTimeout(() => { audio.pause(); }, 8000);
+
+        const promesa = audio.play();
+        if (promesa && typeof promesa.catch === 'function') {
+                    promesa.catch(() => {
+                                // El navegador bloqueo el sonido automatico: esperamos el primer
+                                // toque/clic en cualquier parte de la pagina para intentarlo de nuevo.
+                                const intentoConGesto = () => {
+                                            audio.play().catch(() => {});
+                                            document.removeEventListener('click', intentoConGesto);
+                                            document.removeEventListener('touchstart', intentoConGesto);
+                                };
+                                document.addEventListener('click', intentoConGesto, { once: true });
+                                document.addEventListener('touchstart', intentoConGesto, { once: true });
+                    });
+        }
+}
 
 // Encuentra la "oficina" (manager con esOficina=true) a la que pertenece un manager: el
 // mismo si el es la oficina, o su supervisor si es un sub-manager. Sirve para saber de
@@ -1424,6 +1528,7 @@ async function exportarExcelGeneral() {
 // ============================================================
 function prepararSaludo(manager) {
         aplicarFondoPersonalizado(manager);
+        reproducirAudioBienvenida(manager);
         document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
         const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
         document.getElementById('saludoResumen').textContent =
@@ -1439,6 +1544,8 @@ function prepararSaludo(manager) {
         if (btnMiFondo) btnMiFondo.style.display = manager.esOficina ? '' : 'none';
         const btnMiFondoVideo = document.getElementById('btnMiFondoVideo');
         if (btnMiFondoVideo) btnMiFondoVideo.style.display = manager.esOficina ? '' : 'none';
+        const btnMiFondoAudio = document.getElementById('btnMiFondoAudio');
+        if (btnMiFondoAudio) btnMiFondoAudio.style.display = manager.esOficina ? '' : 'none';
         // Estadisticas 3D del propio manager, visibles apenas entra a la app cada dia,
         // antes de empezar a trabajar (sin tener que tocar ningun boton).
         const clientesM = estado.clientes.filter(c => c.managerId === manager.id);

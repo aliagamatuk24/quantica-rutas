@@ -158,6 +158,20 @@
   </div>
 </div>
 
+<!-- MODAL: SONIDO DE BIENVENIDA DE OFICINA -->
+<div id="modalFondoAudio" class="modal-fondo">
+  <div class="modal-caja">
+    <h3>Sonido de bienvenida de <span id="nombreManagerFondoAudio"></span></h3>
+    <p class="texto-suave">Pega el link directo de un audio corto (unos 8 segundos, por ejemplo uno que termine en .mp3). Se intentará reproducir automáticamente apenas el manager (o sus sub-managers) abran su link. Ojo: los navegadores a veces bloquean el sonido automático por seguridad; si eso pasa, sonará en cuanto la persona toque la pantalla por primera vez.</p>
+    <input type="text" id="urlFondoAudio" class="input" placeholder="https://...">
+    <div class="modal-botones">
+      <button class="btn-texto" onclick="cerrarModalFondoAudio()">Cancelar</button>
+      <button id="btnQuitarFondoAudio" class="btn-texto" style="display:none;color:var(--rojo);" onclick="quitarFondoAudio()">Quitar audio</button>
+      <button id="btnGuardarFondoAudio" class="btn btn-teal" onclick="guardarFondoAudio()">Guardar audio</button>
+    </div>
+  </div>
+</div>
+
 <!-- PANTALLA: MANAGER - CUENTA DESACTIVADA -->
 <div id="pantallaCuentaDesactivada" class="pantalla">
   <div class="selector-wrap">
@@ -186,6 +200,7 @@
     <div style="display:flex;gap:8px;margin-top:8px;">
       <button id="btnMiFondo" class="btn-chico btn-ambar" style="display:none;flex:1;" onclick="abrirModalFondoPropio()">🖼️ Fondo</button>
       <button id="btnMiFondoVideo" class="btn-chico btn-ambar" style="display:none;flex:1;" onclick="abrirModalFondoVideoPropio()">🎬 Video</button>
+      <button id="btnMiFondoAudio" class="btn-chico btn-ambar" style="display:none;flex:1;" onclick="abrirModalFondoAudioPropio()">🔊 Audio</button>
     </div>
   </div>
 </div>
@@ -259,6 +274,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

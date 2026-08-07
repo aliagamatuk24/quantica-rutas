@@ -119,6 +119,15 @@ body.fondo-video-activo::before {
   white-space: nowrap;
 }
 
+/* En pantallas angostas (celulares chicos), los textos mas largos como "LA RUTA DEL
+   TIBURON" se achican un poco para no cortarse en los bordes. */
+@media (max-width: 380px) {
+  .marca-team-fenix {
+    font-size: 18px;
+    letter-spacing: 1.5px;
+  }
+}
+
 .marca-team-fenix span {
   display: inline-block;
   animation: letraTeamFenix 2.4s ease-in-out infinite;
@@ -134,6 +143,16 @@ body.fondo-video-activo::before {
 .marca-team-fenix span:nth-child(8)  { animation-delay: 0.70s; }
 .marca-team-fenix span:nth-child(9)  { animation-delay: 0.80s; }
 .marca-team-fenix span:nth-child(10) { animation-delay: 0.90s; }
+.marca-team-fenix span:nth-child(11) { animation-delay: 1.00s; }
+.marca-team-fenix span:nth-child(12) { animation-delay: 1.10s; }
+.marca-team-fenix span:nth-child(13) { animation-delay: 1.20s; }
+.marca-team-fenix span:nth-child(14) { animation-delay: 1.30s; }
+.marca-team-fenix span:nth-child(15) { animation-delay: 1.40s; }
+.marca-team-fenix span:nth-child(16) { animation-delay: 1.50s; }
+.marca-team-fenix span:nth-child(17) { animation-delay: 1.60s; }
+.marca-team-fenix span:nth-child(18) { animation-delay: 1.70s; }
+.marca-team-fenix span:nth-child(19) { animation-delay: 1.80s; }
+.marca-team-fenix span:nth-child(20) { animation-delay: 1.90s; }
 
 @keyframes letraTeamFenix {
   0%, 100% {

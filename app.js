@@ -976,13 +976,21 @@ function aplicarFondoPersonalizado(manager) {
 
         const oficina = oficinaDe(manager);
 
-        // Marca "TEAM FENIX": pedido especifico de Omar Aliaga, solo para su cuenta y la de
-        // su equipo (sub-managers que dependen de el como oficina). Por eso el ID esta fijo
-        // aqui en vez de ser configurable como el fondo/video/audio de las demas oficinas.
-        const ID_OFICINA_TEAM_FENIX = '97e4ragu';
-        const marcaTeamFenix = document.getElementById('marcaTeamFenix');
-        if (marcaTeamFenix) {
-                    marcaTeamFenix.style.display = (oficina && oficina.id === ID_OFICINA_TEAM_FENIX) ? '' : 'none';
+        // Marcas de texto animado tipo "TEAM FENIX" / "LA RUTA DEL TIBURON": pedidos
+        // especificos por oficina, solo visibles para esa oficina y su equipo (sub-managers
+        // que dependen de ella). Por eso el ID de la oficina esta fijo aqui en vez de ser
+        // configurable como el fondo/video/audio, que si aplican a cualquier oficina.
+        const MARCAS_POR_OFICINA = {
+                    '97e4ragu': 'marcaTeamFenix',      // Omar Aliaga -> "TEAM FENIX"
+                    '39rv91lt': 'marcaRutaTiburon',     // Carlos Buenaventura -> "LA RUTA DEL TIBURON"
+        };
+        Object.values(MARCAS_POR_OFICINA).forEach((idElemento) => {
+                    const el = document.getElementById(idElemento);
+                    if (el) el.style.display = 'none';
+        });
+        if (oficina && MARCAS_POR_OFICINA[oficina.id]) {
+                    const el = document.getElementById(MARCAS_POR_OFICINA[oficina.id]);
+                    if (el) el.style.display = '';
         }
 
         if (oficina && oficina.fondoVideoUrl) {

@@ -144,6 +144,20 @@
   </div>
 </div>
 
+<!-- MODAL: VIDEO DE FONDO PERSONALIZADO DE OFICINA -->
+<div id="modalFondoVideo" class="modal-fondo">
+  <div class="modal-caja">
+    <h3>Video de fondo de <span id="nombreManagerFondoVideo"></span></h3>
+    <p class="texto-suave">Pega el link directo del video (por ejemplo, uno que termine en .mp4). Se reproducira en loop y sin sonido como fondo, solo para esta oficina y sus sub-managers. Si esta oficina tiene video Y foto de fondo a la vez, se muestra el video.</p>
+    <input type="text" id="urlFondoVideo" class="input" placeholder="https://...">
+    <div class="modal-botones">
+      <button class="btn-texto" onclick="cerrarModalFondoVideo()">Cancelar</button>
+      <button id="btnQuitarFondoVideo" class="btn-texto" style="display:none;color:var(--rojo);" onclick="quitarFondoVideo()">Quitar video</button>
+      <button id="btnGuardarFondoVideo" class="btn btn-teal" onclick="guardarFondoVideo()">Guardar video</button>
+    </div>
+  </div>
+</div>
+
 <!-- PANTALLA: MANAGER - CUENTA DESACTIVADA -->
 <div id="pantallaCuentaDesactivada" class="pantalla">
   <div class="selector-wrap">
@@ -169,6 +183,10 @@
     <div id="saludoGrafico3D" style="width:100%;"></div>
     <button class="btn btn-teal" onclick="iniciarJornada()">Comenzar mi ruta</button>
     <button class="btn btn-violeta" onclick="verMiReporte()">Ver mi cartera y avance</button><button id="btnMiEquipo" class="btn btn-coral" style="display:none;" onclick="verEquipo(managerActivoId, 'saludo')">Mi equipo</button>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button id="btnMiFondo" class="btn-chico btn-ambar" style="display:none;flex:1;" onclick="abrirModalFondoPropio()">🖼️ Fondo</button>
+      <button id="btnMiFondoVideo" class="btn-chico btn-ambar" style="display:none;flex:1;" onclick="abrirModalFondoVideoPropio()">🎬 Video</button>
+    </div>
   </div>
 </div>
 
@@ -241,6 +259,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

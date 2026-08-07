@@ -182,7 +182,7 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
                     return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div>`;
         }).join('');
 }
@@ -713,7 +713,7 @@ async function subirFondoOficina() {
 
                     alert('Listo, la imagen de fondo fue guardada.');
                     cerrarModalFondo();
-                    renderPanelAdmin();
+                    refrescarTrasCambioFondo(managerId);
         } catch (e) {
                     alert('No se pudo subir la imagen, revisa tu conexion e intenta de nuevo.');
         } finally {
@@ -735,7 +735,85 @@ async function quitarFondoOficina() {
         });
         if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
         cerrarModalFondo();
-        renderPanelAdmin();
+        refrescarTrasCambioFondo(managerId);
+}
+
+// ============================================================
+// FONDO DE VIDEO POR OFICINA
+// ============================================================
+// A diferencia de la foto, el video NUNCA pasa por nuestro servidor: aqui solo se guarda
+// la direccion web (URL) de un video que el admin (o el propio manager de oficina) ya subio
+// a otro lugar (por ejemplo, subido dentro de esta misma app como archivo, o a un servicio
+// como Cloudinary). El navegador lo reproduce directo desde esa direccion. Por eso no hay
+// limite de tamaño como con las fotos (que si pasan por nuestro servidor y estan limitadas
+// a unos pocos MB).
+let managerFondoVideoActual = null;
+
+function abrirModalFondoVideo(managerId, nombre) {
+        managerFondoVideoActual = managerId;
+        const m = estado.managers.find(x => x.id === managerId);
+        document.getElementById('nombreManagerFondoVideo').textContent = nombre;
+        const input = document.getElementById('urlFondoVideo');
+        input.value = (m && m.fondoVideoUrl) || '';
+        const btnQuitar = document.getElementById('btnQuitarFondoVideo');
+        btnQuitar.style.display = (m && m.fondoVideoUrl) ? '' : 'none';
+        mostrarModal('modalFondoVideo');
+}
+
+function cerrarModalFondoVideo() {
+        cerrarModal('modalFondoVideo');
+}
+
+async function guardarFondoVideo() {
+        if (!managerFondoVideoActual) return;
+        const input = document.getElementById('urlFondoVideo');
+        const url = input.value.trim();
+        if (!url) { alert('Pega primero el link del video.'); return; }
+        try { new URL(url); } catch (e) { alert('Ese link no parece valido. Debe empezar con https://'); return; }
+
+        const managerId = managerFondoVideoActual;
+        const btn = document.getElementById('btnGuardarFondoVideo');
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+        try {
+                    const ok = await actualizarEstado((est) => {
+                                const mm = est.managers.find(x => x.id === managerId);
+                                if (mm) mm.fondoVideoUrl = url;
+                    });
+                    if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+                    alert('Listo, el video de fondo fue guardado.');
+                    cerrarModalFondoVideo();
+                    refrescarTrasCambioFondo(managerId);
+        } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Guardar video';
+        }
+}
+
+async function quitarFondoVideo() {
+        if (!managerFondoVideoActual) return;
+        if (!confirm('¿Seguro que quieres quitar el video de fondo de esta oficina?')) return;
+        const managerId = managerFondoVideoActual;
+        const ok = await actualizarEstado((est) => {
+                    const mm = est.managers.find(x => x.id === managerId);
+                    if (mm) mm.fondoVideoUrl = null;
+        });
+        if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+        cerrarModalFondoVideo();
+        refrescarTrasCambioFondo(managerId);
+}
+
+// Atajos para que un manager de oficina cambie SU PROPIO fondo (foto o video) desde su
+// propia pantalla de saludo, sin necesitar que el administrador lo haga por el.
+function abrirModalFondoPropio() {
+        const m = estado.managers.find(x => x.id === managerActivoId);
+        if (!m) return;
+        abrirModalFondo(m.id, m.nombre);
+}
+function abrirModalFondoVideoPropio() {
+        const m = estado.managers.find(x => x.id === managerActivoId);
+        if (!m) return;
+        abrirModalFondoVideo(m.id, m.nombre);
 }
 
 // Encuentra la "oficina" (manager con esOficina=true) a la que pertenece un manager: el
@@ -751,13 +829,45 @@ function oficinaDe(manager) {
         return null;
 }
 
+// Despues de cambiar el fondo (foto o video) de una oficina, refresca la pantalla que este
+// abierta en ese momento: el panel del administrador, "Mi equipo", o la propia pantalla de
+// saludo del manager de oficina (para que vea el cambio de inmediato, sin recargar la
+// pagina). Asi este boton funciona igual de bien sea el admin o el propio manager quien lo use.
+function refrescarTrasCambioFondo(managerId) {
+        if (document.getElementById('pantallaAdmin').classList.contains('activa')) renderPanelAdmin();
+        if (oficinaActivaId && document.getElementById('pantallaEquipo').classList.contains('activa')) verEquipo(oficinaActivaId, origenEquipo);
+        if (document.getElementById('pantallaSaludo').classList.contains('activa') && managerActivoId === managerId) {
+                    const m = estado.managers.find(x => x.id === managerActivoId);
+                    if (m) prepararSaludo(m);
+        }
+}
+
 // Aplica (o quita) el fondo personalizado de la oficina del manager que acaba de abrir su
 // link. Se llama SOLO desde prepararSaludo(), que a su vez solo se llama cuando alguien
 // entra con un link de manager (?manager=...) — el panel del admin nunca pasa por aqui,
-// asi que la vista del admin nunca se ve afectada.
+// asi que la vista del admin nunca se ve afectada. Si la oficina tiene video Y foto a la
+// vez, el video tiene prioridad (se ve mas completo); si no tiene ninguno, se deja el fondo
+// de siempre.
 function aplicarFondoPersonalizado(manager) {
-        document.body.classList.remove('fondo-personalizado-activo');
+        document.body.classList.remove('fondo-personalizado-activo', 'fondo-video-activo');
+        const videoExistente = document.getElementById('fondoVideoPersonalizado');
+        if (videoExistente) videoExistente.remove();
+
         const oficina = oficinaDe(manager);
+
+        if (oficina && oficina.fondoVideoUrl) {
+                    const video = document.createElement('video');
+                    video.id = 'fondoVideoPersonalizado';
+                    video.src = oficina.fondoVideoUrl;
+                    video.autoplay = true;
+                    video.muted = true;
+                    video.loop = true;
+                    video.playsInline = true;
+                    document.body.insertBefore(video, document.body.firstChild);
+                    document.body.classList.add('fondo-video-activo');
+                    return;
+        }
+
         if (oficina && oficina.fondoVersion) {
                     const url = `/api/imagen-fondo?manager=${oficina.id}&v=${oficina.fondoVersion}`;
                     document.body.style.setProperty('--fondo-personalizado', `url("${url}")`);
@@ -1322,6 +1432,13 @@ function prepararSaludo(manager) {
                         : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
         const btnEquipo = document.getElementById('btnMiEquipo');
         if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
+        // Los botones para cambiar el fondo (foto/video) solo se ven si este manager ES la
+        // oficina (no un sub-manager): asi cada oficina controla su propio fondo, y no hay
+        // confusion de "cual sub-manager cambio el fondo de todos".
+        const btnMiFondo = document.getElementById('btnMiFondo');
+        if (btnMiFondo) btnMiFondo.style.display = manager.esOficina ? '' : 'none';
+        const btnMiFondoVideo = document.getElementById('btnMiFondoVideo');
+        if (btnMiFondoVideo) btnMiFondoVideo.style.display = manager.esOficina ? '' : 'none';
         // Estadisticas 3D del propio manager, visibles apenas entra a la app cada dia,
         // antes de empezar a trabajar (sin tener que tocar ningun boton).
         const clientesM = estado.clientes.filter(c => c.managerId === manager.id);

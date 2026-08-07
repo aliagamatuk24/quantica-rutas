@@ -66,6 +66,23 @@ body.fondo-personalizado-activo::before {
   opacity: 0;
 }
 
+/* Video de fondo personalizado por oficina: el <video> se inserta como primer hijo del
+   body (ver aplicarFondoPersonalizado() en app.js), fijo detras de todo el contenido,
+   cubriendo toda la pantalla en loop y sin sonido. Tiene prioridad sobre la foto de fondo
+   si la oficina tiene las dos cosas cargadas. */
+#fondoVideoPersonalizado {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  pointer-events: none;
+}
+body.fondo-video-activo::before {
+  opacity: 0;
+}
+
 /* Logo de aquafeel solutions, fijo en una esquina, en todas las pantallas */
 .marca-aquafeel {
   position: fixed;

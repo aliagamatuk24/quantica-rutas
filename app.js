@@ -976,6 +976,15 @@ function aplicarFondoPersonalizado(manager) {
 
         const oficina = oficinaDe(manager);
 
+        // Marca "TEAM FENIX": pedido especifico de Omar Aliaga, solo para su cuenta y la de
+        // su equipo (sub-managers que dependen de el como oficina). Por eso el ID esta fijo
+        // aqui en vez de ser configurable como el fondo/video/audio de las demas oficinas.
+        const ID_OFICINA_TEAM_FENIX = '97e4ragu';
+        const marcaTeamFenix = document.getElementById('marcaTeamFenix');
+        if (marcaTeamFenix) {
+                    marcaTeamFenix.style.display = (oficina && oficina.id === ID_OFICINA_TEAM_FENIX) ? '' : 'none';
+        }
+
         if (oficina && oficina.fondoVideoUrl) {
                     const video = document.createElement('video');
                     video.id = 'fondoVideoPersonalizado';

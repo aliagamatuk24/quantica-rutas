@@ -267,6 +267,13 @@
 
 <img src="logo-aquafeel.jpg" alt="Aquafeel Solutions" class="marca-aquafeel">
 
+<!-- Marca "TEAM FENIX": solo se muestra si quien esta viendo la pantalla es Omar Aliaga
+     (manager de oficina) o alguien de su equipo. Se muestra/oculta desde app.js, en
+     aplicarFondoPersonalizado(). Oculta por defecto. -->
+<div id="marcaTeamFenix" class="marca-team-fenix" style="display:none;">
+  <span>T</span><span>E</span><span>A</span><span>M</span><span>&nbsp;</span><span>F</span><span>E</span><span>N</span><span>I</span><span>X</span>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <!-- ExcelJS: a diferencia de la libreria xlsx de arriba (que solo sabe leer/escribir datos),
@@ -274,6 +281,6 @@
      reportes con graficos 3D; la libreria xlsx de arriba se sigue usando para leer las
      carteras que suben los managers. -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

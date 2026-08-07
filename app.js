@@ -887,37 +887,54 @@ async function quitarFondoAudio() {
 // abierta), para no repetirlo cada vez que se refresca la pantalla de saludo (por ejemplo
 // justo despues de cambiar el fondo desde el mismo boton de "Mi equipo").
 const audiosBienvenidaYaSonaron = new Set();
+// Managers para los que ya dejamos un "oyente" de clic/toque esperando poder reproducir el
+// audio: evita duplicar el audio y los oyentes si prepararSaludo() se llama varias veces
+// (por ejemplo, si el manager cambia su fondo mientras sigue en la misma pantalla).
+const audiosBienvenidaEnProgreso = new Set();
 
 // Intenta reproducir el audio de bienvenida de la oficina del manager (si tiene uno
 // configurado). Los navegadores bloquean por seguridad el sonido automatico si la persona
 // no interactuo antes con la pagina, asi que si el intento automatico falla, dejamos un
-// "oyente" invisible (sin ningun boton) que reproduce el audio en cuanto la persona toque o
-// haga clic en cualquier parte de la pantalla por primera vez.
+// "oyente" invisible (sin ningun boton) que reintenta reproducir el audio en CADA toque o
+// clic en cualquier parte de la pantalla, hasta que uno de esos intentos funcione de verdad
+// (antes solo se intentaba una vez con el primer toque, y si ese primer intento tambien
+// fallaba por cualquier motivo, ya no se volvia a intentar).
 function reproducirAudioBienvenida(manager) {
         const oficina = oficinaDe(manager);
         if (!oficina || !oficina.fondoAudioUrl) return;
         if (audiosBienvenidaYaSonaron.has(manager.id)) return;
-        audiosBienvenidaYaSonaron.add(manager.id);
+        if (audiosBienvenidaEnProgreso.has(manager.id)) return;
+        audiosBienvenidaEnProgreso.add(manager.id);
 
         const audio = new Audio(oficina.fondoAudioUrl);
-        // Por si el archivo subido no dura los ~8 segundos esperados, lo cortamos igual a
-        // los 8 segundos para evitar un sonido de fondo interminable por error.
-        setTimeout(() => { audio.pause(); }, 8000);
+        // Confirmamos que el audio esta sonando de verdad (no solo que se llamo play(), que
+        // puede quedar pendiente o fallar en silencio) antes de cortarlo a los 8 segundos y
+        // de marcarlo como "ya sono", para no bloquear reintentos por error.
+        let seEstaReproduciendo = false;
+        audio.addEventListener('playing', () => {
+                    if (seEstaReproduciendo) return;
+                    seEstaReproduciendo = true;
+                    audiosBienvenidaYaSonaron.add(manager.id);
+                    audiosBienvenidaEnProgreso.delete(manager.id);
+                    document.removeEventListener('click', intentarConGesto);
+                    document.removeEventListener('touchstart', intentarConGesto);
+                    document.removeEventListener('keydown', intentarConGesto);
+                    // Por si el archivo subido no dura los ~8 segundos esperados, lo cortamos
+                    // igual a los 8 segundos para evitar un sonido de fondo interminable.
+                    setTimeout(() => { audio.pause(); }, 8000);
+        });
 
-        const promesa = audio.play();
-        if (promesa && typeof promesa.catch === 'function') {
-                    promesa.catch(() => {
-                                // El navegador bloqueo el sonido automatico: esperamos el primer
-                                // toque/clic en cualquier parte de la pagina para intentarlo de nuevo.
-                                const intentoConGesto = () => {
-                                            audio.play().catch(() => {});
-                                            document.removeEventListener('click', intentoConGesto);
-                                            document.removeEventListener('touchstart', intentoConGesto);
-                                };
-                                document.addEventListener('click', intentoConGesto, { once: true });
-                                document.addEventListener('touchstart', intentoConGesto, { once: true });
-                    });
-        }
+        const intentarConGesto = () => { audio.play().catch(() => {}); };
+
+        // Primer intento automatico, sin esperar ningun toque (funciona en algunos casos,
+        // por ejemplo en computadoras donde ya se navego antes por el sitio).
+        audio.play().catch(() => {});
+
+        // Y si eso fue bloqueado, reintentamos en cada toque/clic/tecla siguiente, las veces
+        // que haga falta, hasta que uno de esos intentos si logre sonar.
+        document.addEventListener('click', intentarConGesto);
+        document.addEventListener('touchstart', intentarConGesto);
+        document.addEventListener('keydown', intentarConGesto);
 }
 
 // Encuentra la "oficina" (manager con esOficina=true) a la que pertenece un manager: el

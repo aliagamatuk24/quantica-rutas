@@ -1143,6 +1143,26 @@ function ordenarPorRuta(clientes) {
     });
 }
 
+// Parte una direccion guardada como texto unico ("calle, ciudad, XX 12345") en dos partes
+// SOLO para mostrarla en los reportes exportables: calle y ciudad (ciudad, estado y codigo
+// postal juntos). El dato original guardado en el cliente (c.direccion) NO se toca, asi que
+// la navegacion con Google Maps y el mapa dentro de la app siguen funcionando exactamente
+// igual que siempre; esto es nada mas una transformacion de presentacion para el Excel.
+// Tambien limpia un error de datos viejo donde algunas direcciones quedaron con el estado
+// repetido dos veces al final (ej: "Oxford, NC 27565-7206, NC" -> "Oxford, NC 27565-7206").
+function separarDireccion(direccionCompleta) {
+    if (!direccionCompleta) return { calle: '', ciudad: '' };
+    const idx = direccionCompleta.indexOf(',');
+    if (idx === -1) return { calle: direccionCompleta.trim(), ciudad: '' };
+    const calle = direccionCompleta.slice(0, idx).trim();
+    let ciudad = direccionCompleta.slice(idx + 1).trim();
+    const matchDuplicado = ciudad.match(/^(.*\b([A-Za-z]{2})\s+\d{5}(\s*-\s*\d{4})?),\s*([A-Za-z]{2})\s*$/);
+    if (matchDuplicado && matchDuplicado[2].toUpperCase() === matchDuplicado[4].toUpperCase()) {
+        ciudad = matchDuplicado[1].trim();
+    }
+    return { calle, ciudad };
+}
+
 // Quita caracteres que Excel no permite en el nombre de una pestaña (\ / ? * [ ] :)
 // y la recorta a 31 caracteres (el limite de Excel).
 function nombreHojaSeguro(nombre) {
@@ -1209,12 +1229,15 @@ async function exportarExcelGeneral() {
               hojasPorManager.push({
                         nombre: m.nombre,
                         clientes: clientesM,
-                        filas: clientesM.map((c, idx) => ({
+                        filas: clientesM.map((c, idx) => {
+                                    const { calle, ciudad } = separarDireccion(c.direccion);
+                                    return {
                                     Orden: idx + 1,
                                     Codigo: c.codigo || '',
                                     Estatus: c.estatus,
                                     Nombre: c.nombre,
-                                    Direccion: c.direccion,
+                                    Direccion: calle,
+                                    Ciudad: ciudad,
                                     Telefono: c.telefono,
                             'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
@@ -1223,7 +1246,8 @@ async function exportarExcelGeneral() {
                                     'Observaciones cita': c.citaObservaciones || '',
                                     'Hora de visita': c.horaLlegada || '',
                                     Observaciones: c.observaciones || ''
-                        }))
+                                    };
+                        })
               });
 
               const resumenM = contarGestion(clientesM);
@@ -1238,13 +1262,15 @@ async function exportarExcelGeneral() {
               });
 
               clientesM.forEach((c, idx) => {
+                        const { calle, ciudad } = separarDireccion(c.direccion);
                         consolidado.push({
                                     Manager: m.nombre,
                                     Orden: idx + 1,
                                     Codigo: c.codigo || '',
                                     Estatus: c.estatus,
                                     Nombre: c.nombre,
-                                    Direccion: c.direccion,
+                                    Direccion: calle,
+                                    Ciudad: ciudad,
                                     Telefono: c.telefono,
                                     'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
                                     'Fecha cita': c.citaFecha || '',
@@ -1601,12 +1627,15 @@ async function descargarMiExcel() {
       const manager = estado.managers.find(m => m.id === managerReporteId);
       if (!manager) return;
       const clientesM = ordenarPorRuta(estado.clientes.filter(c => c.managerId === manager.id));
-      const filas = clientesM.map((c, idx) => ({
+      const filas = clientesM.map((c, idx) => {
+              const { calle, ciudad } = separarDireccion(c.direccion);
+              return {
               Orden: idx + 1,
               Codigo: c.codigo || '',
               Estatus: c.estatus,
               Nombre: c.nombre,
-              Direccion: c.direccion,
+              Direccion: calle,
+              Ciudad: ciudad,
               Telefono: c.telefono,
               'Fecha de gestion': formatearSoloFecha(c.fechaHoraLlegada), 'Hora de gestion': formatearSoloHora(c.fechaHoraLlegada),
               'Fecha cita': c.citaFecha || '',
@@ -1614,7 +1643,8 @@ async function descargarMiExcel() {
               'Telefono cita': c.citaTelefono || '',
               'Observaciones cita': c.citaObservaciones || '',
               Observaciones: c.observaciones || ''
-      }));
+              };
+      });
       const wb = new ExcelJS.Workbook();
       const hoja = wb.addWorksheet(nombreHojaSeguro(manager.nombre) || 'Mi reporte');
       const filaTabla = insertarGrafico3DEnHoja(wb, hoja, clientesM, manager.nombre);

@@ -438,6 +438,108 @@ function subManagersDe(oficinaId) {
         return estado.managers.filter(m => m.supervisorId === oficinaId);
 }
 
+// ============================================================
+// METRICAS NUEVAS PARA EL TABLERO INTERACTIVO Y LOS EXCEL
+// ============================================================
+
+// Cuantos dias en promedio tarda un cliente desde que se carga (fechaCarga) hasta que
+// el manager lo gestiona por primera vez (fechaHoraLlegada). Solo cuenta los clientes
+// que YA se gestionaron; null si todavia no hay ninguno para calcular el promedio.
+function tiempoPromedioRespuesta(clientes) {
+        const gestionados = clientes.filter(c => c.fechaCarga && c.fechaHoraLlegada);
+        if (gestionados.length === 0) return null;
+        const totalDias = gestionados.reduce((suma, c) => {
+                    const carga = new Date(c.fechaCarga);
+                    const gestion = new Date(c.fechaHoraLlegada);
+                    return suma + Math.max(0, (gestion - carga) / 86400000);
+        }, 0);
+        return Math.round((totalDias / gestionados.length) * 10) / 10; // 1 decimal
+}
+
+// De todos los clientes ya gestionados, que porcentaje quedo en "no atendio" (nadie
+// contesto). Ayuda a ver si un manager esta teniendo problemas para encontrar gente
+// en casa. Null si todavia no hay ningun gestionado.
+function tasaNoAtendio(clientes) {
+        const { gestionados } = contarGestion(clientes);
+        if (gestionados === 0) return null;
+        const noAtendio = clientes.filter(c => c.estatus === 'no_atendio').length;
+        return Math.round((noAtendio / gestionados) * 100);
+}
+
+// Ordena a los sub-managers de una oficina de mayor a menor % de avance, y les asigna
+// una posicion (1 = el que mas avanzo). Sirve tanto para el ranking visual de la
+// oficina como para mostrarle a cada manager "vas en el puesto X de Y de tu equipo".
+function rankingPorAvance(oficinaId) {
+        const subs = subManagersDe(oficinaId);
+        const filas = subs.map(m => {
+                    const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+                    const { total, gestionados } = contarGestion(clientesM);
+                    const avance = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+                    return { manager: m, total, gestionados, avance };
+        });
+        filas.sort((a, b) => b.avance - a.avance);
+        filas.forEach((f, i) => { f.posicion = i + 1; });
+        return filas;
+}
+
+// Busca la posicion de UN manager dentro del ranking de su propia oficina. Devuelve
+// null si no pertenece a ninguna oficina (por ejemplo, si el manager de oficina no
+// tiene ningun sub-manager todavia, o si el mismo es la oficina).
+function posicionEnEquipo(manager) {
+        const oficina = oficinaDe(manager);
+        if (!oficina || oficina.id === manager.id) return null;
+        const ranking = rankingPorAvance(oficina.id);
+        const fila = ranking.find(f => f.manager.id === manager.id);
+        if (!fila) return null;
+        return { posicion: fila.posicion, deCuantos: ranking.length, avance: fila.avance };
+}
+
+// Cuenta cuantas gestiones (visitas ya hechas) cayeron en cada dia de la semana, para
+// ver que dias rinden mas. Empieza en Lunes porque es mas natural para una semana
+// laboral que empezar en Domingo.
+function distribucionPorDiaSemana(clientes) {
+        const nombres = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
+        const conteo = [0, 0, 0, 0, 0, 0, 0];
+        clientes.forEach(c => {
+                    if (!c.fechaHoraLlegada) return;
+                    conteo[new Date(c.fechaHoraLlegada).getDay()]++;
+        });
+        const orden = [1, 2, 3, 4, 5, 6, 0]; // Lunes..Domingo
+        return orden.map(i => ({ dia: nombres[i], cantidad: conteo[i] }));
+}
+
+// ---- Historial diario (para la curva de avance en el tiempo) ----
+// Se guarda una vez al dia desde el servidor (netlify/functions/historial-scheduled.js).
+// Aqui solo lo leemos. Se guarda en cache dentro de la sesion del navegador para no
+// pedirlo de nuevo cada vez que se abre el tablero.
+let historialCache = null;
+async function obtenerHistorial() {
+        if (historialCache) return historialCache;
+        try {
+                    const r = await fetch('/api/historial');
+                    const data = await r.json();
+                    historialCache = data.dias || [];
+        } catch (e) {
+                    console.error('No se pudo cargar el historial', e);
+                    historialCache = [];
+        }
+        return historialCache;
+}
+
+// Arma la serie de tiempo (un punto por dia) del % de avance promedio de un conjunto
+// de managers (managerIds). Si un dia no tiene foto guardada de ninguno de esos
+// managers, ese punto queda en null (por ejemplo, dias antes de que empezara a
+// guardarse el historial).
+function serieAvanceEnTiempo(dias, managerIds) {
+        return dias.map(dia => {
+                    const snaps = (dia.snapshots || []).filter(s => managerIds.includes(s.managerId));
+                    const avance = snaps.length > 0
+                        ? Math.round(snaps.reduce((suma, s) => suma + s.avance, 0) / snaps.length)
+                        : null;
+                    return { fecha: dia.fecha, avance };
+        });
+}
+
 async function vaciarCartera(managerId, nombre) {
     const clientesM = estado.clientes.filter(c => c.managerId === managerId);
     if (clientesM.length === 0) { alert('Ese manager ya no tiene clientes cargados.'); return; }
@@ -1600,6 +1702,219 @@ function toggleCilindro3D(btn, contenedorId, managerId, modo) {
     btn.textContent = '🎯 Ocultar cilindro 3D';
 }
 
+// ============================================================
+// TABLERO "MODO PANTALLA GRANDE" (para proyectar con el equipo)
+// ============================================================
+// Junta TODAS las metricas (avance, semaforo, ritmo, efectividad, tiempo de respuesta,
+// no atendio, ranking, dia de la semana y curva historica) en una sola pantalla grande
+// y con graficos interactivos (Chart.js), pensada para abrirse en una tele o proyector
+// durante una reunion de equipo. Se puede abrir desde "Mi equipo" (ya scoped a la
+// oficina de quien la abre) o desde el Panel Admin (con selector para elegir oficina,
+// o ver "todos" los managers juntos).
+let tableroOficinaId = null; // id de oficina que se esta viendo, o null = "todos"
+let tableroOrigen = 'equipo'; // 'equipo' o 'admin', para saber a donde volver
+let tableroChartSemana = null;
+let tableroChartHistorial = null;
+
+async function abrirTablero(oficinaId, origen) {
+    tableroOficinaId = oficinaId || null;
+    tableroOrigen = origen || 'equipo';
+
+    const selector = document.getElementById('tableroSelectorOficina');
+    if (tableroOrigen === 'admin') {
+        // Solo el admin puede cambiar de oficina desde el mismo tablero; el manager de
+        // oficina siempre ve nada mas la suya, asi que no necesita el selector.
+        const oficinas = estado.managers.filter(m => m.esOficina);
+        selector.innerHTML = `<option value="">Todos los managers</option>` +
+            oficinas.map(o => `<option value="${o.id}" ${o.id === tableroOficinaId ? 'selected' : ''}>${o.nombre}</option>`).join('');
+        selector.style.display = '';
+    } else {
+        selector.style.display = 'none';
+    }
+
+    mostrarPantalla('pantallaTablero');
+    await renderTablero();
+}
+
+function cambiarOficinaTablero(valor) {
+    tableroOficinaId = valor || null;
+    renderTablero();
+}
+
+function volverDeTablero() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    if (tableroChartSemana) { tableroChartSemana.destroy(); tableroChartSemana = null; }
+    if (tableroChartHistorial) { tableroChartHistorial.destroy(); tableroChartHistorial = null; }
+    if (tableroOrigen === 'admin') {
+        renderPanelAdmin();
+        mostrarPantalla('pantallaAdmin');
+    } else {
+        mostrarPantalla('pantallaEquipo');
+    }
+}
+
+function pantallaCompletaTablero() {
+    const el = document.getElementById('pantallaTablero');
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+    } else if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+    }
+}
+
+// Arma el conjunto de managers y clientes que le toca ver al tablero, segun si esta
+// scoped a una oficina puntual o mostrando todo el negocio.
+function alcanceTablero() {
+    let managers, titulo;
+    if (tableroOficinaId) {
+        const oficina = estado.managers.find(m => m.id === tableroOficinaId);
+        managers = subManagersDe(tableroOficinaId);
+        titulo = oficina ? oficina.nombre : 'Equipo';
+    } else {
+        managers = estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
+        titulo = 'Todos los managers';
+    }
+    const idsManagers = managers.map(m => m.id);
+    const clientes = estado.clientes.filter(c => idsManagers.includes(c.managerId));
+    return { managers, clientes, titulo };
+}
+
+function coloresSemaforoCss(color) {
+    return { verde: '#16A34A', amarillo: '#D97706', rojo: '#DC2626', gris: '#94A3B8' }[color] || '#94A3B8';
+}
+
+async function renderTablero() {
+    const cont = document.getElementById('tableroContenido');
+    const { managers, clientes, titulo } = alcanceTablero();
+    document.getElementById('tableroSubtitulo').textContent = titulo;
+
+    if (managers.length === 0 || clientes.length === 0) {
+        cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">📽️</div>Todavia no hay clientes cargados para mostrar el tablero de este equipo.</div>`;
+        return;
+    }
+
+    const { total, gestionados, porGestionar } = contarGestion(clientes);
+    const avance = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+    const ritmo = clientesPorDia(clientes);
+    const efectividad = tasaEfectividad(clientes);
+    const tiempoResp = tiempoPromedioRespuesta(clientes);
+    const noAtendio = tasaNoAtendio(clientes);
+
+    // Ranking + resumen de semaforos: se calculan manager por manager dentro del alcance.
+    const filasRanking = managers.map(m => {
+        const clientesM = clientes.filter(c => c.managerId === m.id);
+        const { total: totalM, gestionados: gestionadosM } = contarGestion(clientesM);
+        const avanceM = totalM > 0 ? Math.round((gestionadosM / totalM) * 100) : 0;
+        const semaforo = calcularSemaforo(m, clientesM);
+        return { manager: m, total: totalM, gestionados: gestionadosM, avance: avanceM, semaforo };
+    }).sort((a, b) => b.avance - a.avance);
+
+    const resumenSemaforo = { verde: 0, amarillo: 0, rojo: 0, gris: 0 };
+    filasRanking.forEach(f => { resumenSemaforo[f.semaforo.color]++; });
+
+    const distribucion = distribucionPorDiaSemana(clientes);
+
+    cont.innerHTML = `
+        <div class="tablero-grid">
+            <div class="tablero-kpi" style="--color-kpi:${coloresSemaforoCss(avance >= 80 ? 'verde' : avance >= 50 ? 'amarillo' : 'rojo')};">
+                <div class="tablero-kpi-valor">${avance}%</div>
+                <div class="tablero-kpi-label">Avance del equipo</div>
+                <div class="tablero-kpi-sub">${gestionados} de ${total} gestionados · faltan ${porGestionar}</div>
+            </div>
+            <div class="tablero-kpi" style="--color-kpi:#7C5CFF;">
+                <div class="tablero-kpi-valor">${ritmo.toFixed(1)}</div>
+                <div class="tablero-kpi-label">Visitas / dia (promedio)</div>
+            </div>
+            <div class="tablero-kpi" style="--color-kpi:#FFB020;">
+                <div class="tablero-kpi-valor">${efectividad != null ? efectividad + '%' : '—'}</div>
+                <div class="tablero-kpi-label">Tasa de efectividad</div>
+                <div class="tablero-kpi-sub">Citas cerradas vs. retirados</div>
+            </div>
+            <div class="tablero-kpi" style="--color-kpi:#0EA5A0;">
+                <div class="tablero-kpi-valor">${tiempoResp != null ? tiempoResp + 'd' : '—'}</div>
+                <div class="tablero-kpi-label">Tiempo promedio de respuesta</div>
+            </div>
+            <div class="tablero-kpi" style="--color-kpi:#DC2626;">
+                <div class="tablero-kpi-valor">${noAtendio != null ? noAtendio + '%' : '—'}</div>
+                <div class="tablero-kpi-label">Tasa de "no atendió"</div>
+            </div>
+            <div class="tablero-kpi tablero-kpi-semaforos">
+                <div class="tablero-kpi-label" style="margin-bottom:8px;">Semáforo del equipo</div>
+                <div class="tablero-semaforo-fila">
+                    <span class="tablero-punto" style="background:#16A34A;"></span> ${resumenSemaforo.verde} a tiempo
+                    <span class="tablero-punto" style="background:#D97706;"></span> ${resumenSemaforo.amarillo} en riesgo
+                    <span class="tablero-punto" style="background:#DC2626;"></span> ${resumenSemaforo.rojo} atrasados
+                    <span class="tablero-punto" style="background:#94A3B8;"></span> ${resumenSemaforo.gris} sin fecha
+                </div>
+            </div>
+        </div>
+
+        <div class="tarjeta">
+            <h3 style="margin:0 0 12px;">🏆 Ranking por avance</h3>
+            <div class="tablero-ranking">
+                ${filasRanking.map((f, i) => `
+                    <div class="tablero-ranking-fila">
+                        <span class="tablero-ranking-puesto">#${i + 1}</span>
+                        <span class="tablero-ranking-nombre">${f.manager.nombre}${semaforoHTML(f.manager, clientes.filter(c => c.managerId === f.manager.id), 'semaforo-tablero-' + f.manager.id)}</span>
+                        <div class="tablero-ranking-barra-wrap"><div class="tablero-ranking-barra" style="width:${f.avance}%;background:${coloresSemaforoCss(f.semaforo.color)};"></div></div>
+                        <span class="tablero-ranking-pct">${f.avance}%</span>
+                    </div>
+                    <div id="semaforo-tablero-${f.manager.id}"></div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="tablero-graficos">
+            <div class="tarjeta">
+                <h3 style="margin:0 0 12px;">📅 Gestiones por día de la semana</h3>
+                <canvas id="tableroCanvasSemana" height="220"></canvas>
+            </div>
+            <div class="tarjeta">
+                <h3 style="margin:0 0 12px;">📈 Curva de avance en el tiempo</h3>
+                <canvas id="tableroCanvasHistorial" height="220"></canvas>
+                <p class="texto-suave" id="tableroHistorialAviso" style="margin-top:8px;"></p>
+            </div>
+        </div>
+    `;
+
+    // Grafico de barras: dia de la semana.
+    if (tableroChartSemana) { tableroChartSemana.destroy(); tableroChartSemana = null; }
+    const ctxSemana = document.getElementById('tableroCanvasSemana');
+    if (ctxSemana && typeof Chart !== 'undefined') {
+        tableroChartSemana = new Chart(ctxSemana, {
+            type: 'bar',
+            data: {
+                labels: distribucion.map(d => d.dia.slice(0, 3)),
+                datasets: [{ label: 'Gestiones', data: distribucion.map(d => d.cantidad), backgroundColor: '#7C5CFF', borderRadius: 6 }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+    }
+
+    // Grafico de linea: curva de avance en el tiempo (historial diario).
+    if (tableroChartHistorial) { tableroChartHistorial.destroy(); tableroChartHistorial = null; }
+    const dias = await obtenerHistorial();
+    const idsManagers = managers.map(m => m.id);
+    const serie = serieAvanceEnTiempo(dias, idsManagers);
+    const avisoHistorial = document.getElementById('tableroHistorialAviso');
+    if (avisoHistorial) {
+        avisoHistorial.textContent = serie.length <= 1
+            ? 'El historial se empezo a guardar recien: en unos dias esta curva va a mostrar la tendencia real.'
+            : '';
+    }
+    const ctxHistorial = document.getElementById('tableroCanvasHistorial');
+    if (ctxHistorial && typeof Chart !== 'undefined') {
+        tableroChartHistorial = new Chart(ctxHistorial, {
+            type: 'line',
+            data: {
+                labels: serie.map(s => s.fecha.slice(5)), // "MM-DD"
+                datasets: [{ label: '% Avance', data: serie.map(s => s.avance), borderColor: '#16A34A', backgroundColor: 'rgba(22,163,74,0.15)', fill: true, tension: 0.3, spanGaps: true }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+    }
+}
+
 // Pone primero a los clientes gestionados mas recientemente (para que en el Excel
 // no queden salteados entre cientos de pendientes). Los que nunca se han tocado
 // quedan al final, en el mismo orden en que se cargaron.
@@ -1681,11 +1996,72 @@ function escribirTablaDesdeObjetos(hoja, filaInicio, filas) {
 // Inserta el grafico 3D de un canjunto de clientes en la esquina superior izquierda de
 // la hoja, dejando espacio libre debajo para la tabla de datos. Devuelve la fila donde
 // puede empezar la tabla sin toparse con la imagen.
-function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo) {
+// "opciones" es opcional:
+//  - { manager }: agrega el semaforo de cumplimiento de ESE manager (color + motivo) a
+//    la derecha del grafico. Se usa en "Mi Excel" y en cada hoja por manager.
+//  - { ranking: true }: en vez del semaforo de un manager, agrega la lista completa de
+//    managers ordenada de mayor a menor avance. Se usa en la hoja "Resumen" (grupal).
+// En los dos casos se agregan tambien: % de avance, tasa de efectividad, ritmo diario,
+// tiempo promedio de respuesta y tasa de "no atendio" — las mismas metricas nuevas que
+// se ven en el tablero "Modo pantalla grande" dentro de la app.
+function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo, opciones) {
     const imagenBase64 = dibujarGrafico3D(datosGraficoDeClientes(clientes), titulo);
     const idImagen = wb.addImage({ base64: imagenBase64, extension: 'png' });
     hoja.addImage(idImagen, { tl: { col: 0, row: 0 }, ext: { width: 560, height: 340 } });
-    return 19; // ~340px de imagen a ~20px por fila, mas un respiro
+
+    const opts = opciones || {};
+    const colStats = 10; // columna J: queda libre a la derecha de la imagen (560px de ancho)
+    hoja.getColumn(colStats).width = 34;
+    let fila = 1;
+
+    const totalizado = contarGestion(clientes);
+    const avance = totalizado.total > 0 ? Math.round((totalizado.gestionados / totalizado.total) * 100) : 0;
+    const efectividad = tasaEfectividad(clientes);
+    const ritmo = clientesPorDia(clientes);
+    const tiempoResp = tiempoPromedioRespuesta(clientes);
+    const noAtendio = tasaNoAtendio(clientes);
+
+    const escribirCelda = (texto, extra) => {
+        const c = hoja.getRow(fila).getCell(colStats);
+        c.value = texto;
+        if (extra && extra.negrita) c.font = { bold: true, size: extra.tamano || 11 };
+        if (extra && extra.fondo) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: extra.fondo } };
+        if (extra && extra.envolver) c.alignment = { wrapText: true, vertical: 'top' };
+        fila++;
+    };
+
+    escribirCelda(`Avance: ${avance}%`, { negrita: true, tamano: 14 });
+
+    if (opts.manager) {
+        const { color, texto } = calcularSemaforo(opts.manager, clientes);
+        const fondoHex = { verde: 'FFBBF7D0', amarillo: 'FFFDE68A', rojo: 'FFFCA5A5', gris: 'FFE2E8F0' }[color] || 'FFE2E8F0';
+        escribirCelda(`Estatus: ${color.toUpperCase()}`, { negrita: true, fondo: fondoHex });
+        hoja.getRow(fila).height = 60;
+        escribirCelda(texto, { envolver: true });
+        fila++; // fila libre antes de seguir
+    }
+
+    escribirCelda(`Efectividad: ${efectividad != null ? efectividad + '%' : 'Sin datos aun'}`);
+    escribirCelda(`Ritmo: ${ritmo.toFixed(1)} clientes/dia`);
+    escribirCelda(`Tiempo de respuesta: ${tiempoResp != null ? tiempoResp + ' dias' : 'Sin datos aun'}`);
+    escribirCelda(`Tasa "no atendio": ${noAtendio != null ? noAtendio + '%' : 'Sin datos aun'}`);
+
+    if (opts.ranking) {
+        fila++;
+        escribirCelda('Ranking por avance:', { negrita: true });
+        const filasRanking = estado.managers
+            .filter(m => !m.esOficina || subManagersDe(m.id).length === 0)
+            .map(m => {
+                        const clientesM = estado.clientes.filter(c => c.managerId === m.id);
+                        const t = contarGestion(clientesM);
+                        const av = t.total > 0 ? Math.round((t.gestionados / t.total) * 100) : 0;
+                        return { nombre: m.nombre, avance: av };
+            })
+            .sort((a, b) => b.avance - a.avance);
+        filasRanking.forEach((f, i) => escribirCelda(`${i + 1}. ${f.nombre} — ${f.avance}%`));
+    }
+
+    return 19; // ~340px de imagen a ~20px por fila, mas un respiro (la tabla principal va en columna A)
 }
 
 // Convierte el workbook de ExcelJS en un archivo .xlsx descargable y lo dispara.
@@ -1714,6 +2090,7 @@ async function exportarExcelGeneral() {
 
               hojasPorManager.push({
                         nombre: m.nombre,
+                        manager: m,
                         clientes: clientesM,
                         filas: clientesM.map((c, idx) => {
                                     const { calle, ciudad } = separarDireccion(c.direccion);
@@ -1773,7 +2150,7 @@ async function exportarExcelGeneral() {
 
       // Hoja Resumen: grafico 3D grupal (todo el equipo junto) + la tabla de siempre.
       const hojaResumen = wb.addWorksheet('Resumen');
-      const filaTablaResumen = insertarGrafico3DEnHoja(wb, hojaResumen, clientesDeTodoElEquipo, 'Equipo completo');
+      const filaTablaResumen = insertarGrafico3DEnHoja(wb, hojaResumen, clientesDeTodoElEquipo, 'Equipo completo', { ranking: true });
       escribirTablaDesdeObjetos(hojaResumen, filaTablaResumen, resumen);
 
       // Hoja con todos los clientes de todos los managers juntos (sin grafico, es la
@@ -1788,7 +2165,7 @@ async function exportarExcelGeneral() {
               while (nombresUsados.has(nombreHoja)) { nombreHoja = nombreHojaSeguro(h.nombre).slice(0, 28) + ' ' + sufijo; sufijo++; }
               nombresUsados.add(nombreHoja);
               const hoja = wb.addWorksheet(nombreHoja);
-              const filaTabla = insertarGrafico3DEnHoja(wb, hoja, h.clientes, h.nombre);
+              const filaTabla = insertarGrafico3DEnHoja(wb, hoja, h.clientes, h.nombre, { manager: h.manager });
               escribirTablaDesdeObjetos(hoja, filaTabla, h.filas);
       });
 
@@ -1830,6 +2207,15 @@ function prepararSaludo(manager) {
         if (contCilindro) {
                     if (clientesM.length > 0) crearCilindro3D('saludoCilindro3D', manager, clientesM);
                     else { destruirCilindro3D('saludoCilindro3D'); contCilindro.innerHTML = ''; }
+        }
+        // "Vas en el puesto X de Y de tu equipo": solo aplica a sub-managers que
+        // pertenecen a una oficina (un manager de oficina no compite contra si mismo).
+        const contPosicion = document.getElementById('saludoPosicionEquipo');
+        if (contPosicion) {
+                    const pos = posicionEnEquipo(manager);
+                    contPosicion.textContent = pos
+                        ? `🏆 Vas en el puesto ${pos.posicion} de ${pos.deCuantos} de tu equipo (${pos.avance}% de avance).`
+                        : '';
         }
 }
 
@@ -2151,7 +2537,7 @@ async function descargarMiExcel() {
       });
       const wb = new ExcelJS.Workbook();
       const hoja = wb.addWorksheet(nombreHojaSeguro(manager.nombre) || 'Mi reporte');
-      const filaTabla = insertarGrafico3DEnHoja(wb, hoja, clientesM, manager.nombre);
+      const filaTabla = insertarGrafico3DEnHoja(wb, hoja, clientesM, manager.nombre, { manager });
       escribirTablaDesdeObjetos(hoja, filaTabla, filas);
       await descargarWorkbook(wb, `Reporte_${manager.nombre.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }

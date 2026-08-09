@@ -203,6 +203,54 @@ body.fondo-video-activo::before {
   .cilindro3d-canvas { width: 160px; height: 180px; }
 }
 
+/* ---- Tablero "Modo pantalla grande" (para proyectar con el equipo) ---- */
+.tablero-contenido { max-width: 1100px; }
+
+.tablero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.tablero-kpi {
+  --color-kpi: #7C5CFF;
+  background: var(--tarjeta-bg);
+  border-radius: 18px;
+  padding: 20px 18px;
+  box-shadow: 0 2px 10px rgba(30,41,59,0.08);
+  border-top: 5px solid var(--color-kpi);
+}
+.tablero-kpi-valor { font-size: 42px; font-weight: 800; color: var(--color-kpi); line-height: 1.1; }
+.tablero-kpi-label { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 4px; }
+.tablero-kpi-sub { font-size: 12px; color: var(--ink-suave); margin-top: 4px; }
+.tablero-kpi-semaforos { grid-column: span 2; }
+.tablero-semaforo-fila { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 14px; font-weight: 600; color: var(--ink); }
+.tablero-punto { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+.tablero-ranking { display: flex; flex-direction: column; gap: 10px; }
+.tablero-ranking-fila { display: flex; align-items: center; gap: 10px; }
+.tablero-ranking-puesto { font-weight: 800; font-size: 15px; color: var(--ink-suave); width: 30px; flex-shrink: 0; }
+.tablero-ranking-nombre { font-weight: 600; font-size: 14px; width: 150px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tablero-ranking-barra-wrap { flex: 1; height: 14px; background: #E2E8F0; border-radius: 999px; overflow: hidden; }
+.tablero-ranking-barra { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+.tablero-ranking-pct { font-weight: 700; font-size: 14px; width: 44px; text-align: right; flex-shrink: 0; }
+
+.tablero-graficos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 720px) {
+  .tablero-graficos { grid-template-columns: 1fr; }
+  .tablero-kpi-semaforos { grid-column: span 1; }
+}
+
+/* Modo pantalla completa (Fullscreen API): agrandamos todo un poco mas para que se
+   lea bien de lejos, proyectado en una tele o pantalla grande. */
+#pantallaTablero:fullscreen { background: var(--bg); overflow-y: auto; }
+#pantallaTablero:fullscreen .tablero-kpi-valor { font-size: 52px; }
+#pantallaTablero:fullscreen .contenido { max-width: 1300px; }
+
 h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 
 .pantalla {

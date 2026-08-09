@@ -410,6 +410,9 @@ h1, h2, h3 { font-family: 'Inter', sans-serif; margin: 0; }
 .fila-manager-nombre { font-weight: 600; font-size: 15px; }
 .fila-manager-meta { font-size: 12px; color: var(--ink-suave); }
 .fila-manager-acciones { display: flex; gap: 6px; }
+.fila-manager-gestion { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; width: 100%; padding-top: 8px; border-top: 1px dashed var(--borde); }
+.fila-manager-gestion label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-suave); cursor: pointer; }
+.fila-manager-gestion input[type="radio"] { width: 16px; height: 16px; accent-color: var(--ambar); cursor: pointer; }
 .chip-link {
   font-size: 11px;
   background: #F3E8C7;

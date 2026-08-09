@@ -2368,8 +2368,8 @@ function renderClienteActual() {
 
   const c = rutaOrdenada[indiceClienteActual];
     const yaCompletado = !!c.horaLlegada;
-    const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver', no_atendio: '⚪ No atendio' };
-    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendio' : '⚪ No atendio'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div><div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
+    const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver', no_atendio: '⚪ No atendió a la cita' };
+    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${(c.lat&&c.lng)?`${c.lat},${c.lng}`:encodeURIComponent(c.direccion)}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendió a la cita' : '⚪ No atendió a la cita'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div>${yaCompletado ? `<button class="btn-texto" style="color:var(--rojo);" onclick="borrarGestionCliente('${c.id}','ruta')">🗑️ Borrar gestión</button>` : ''}<div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
 }
 
 function clienteAnterior() {
@@ -2453,6 +2453,45 @@ const ok = await actualizarEstado((est) => {
     renderClienteActual();
 }
 
+// Borra la gestion ya puesta a un cliente y lo deja "pendiente" otra vez, como si
+// nadie lo hubiera visitado. Solo borra el resultado de la visita (estatus, hora,
+// datos de la cita) — el telefono y las observaciones de notas NO se tocan, porque
+// esos datos de contacto se guardan aparte y a Omar le sirve conservarlos.
+// Funciona desde dos lugares: la tarjeta de la ruta (origen='ruta') y la lista de
+// "Mi reporte" (origen='reporte'), asi que busca al cliente por id en vez de usar
+// el indice de la ruta.
+async function borrarGestionCliente(clienteId, origen) {
+    const c = estado.clientes.find(x => x.id === clienteId);
+    if (!c) return;
+    if (!confirm(`¿Seguro que quieres borrar la gestión de "${c.nombre}"? Volverá a quedar pendiente. (El teléfono y las notas no se borran.)`)) return;
+
+    const ok = await actualizarEstado((est) => {
+          const clienteReal = est.clientes.find(x => x.id === clienteId);
+          if (!clienteReal) return;
+          clienteReal.estatus = 'pendiente';
+          clienteReal.horaLlegada = '';
+          clienteReal.fechaHoraLlegada = '';
+          clienteReal.citaFecha = '';
+          clienteReal.citaHora = '';
+          clienteReal.citaTelefono = '';
+          clienteReal.citaObservaciones = '';
+    });
+
+    if (!ok) {
+          alert('No se pudo borrar la gestion. Revisa tu conexion e intenta de nuevo tocando el mismo boton.');
+          return;
+    }
+
+    if (origen === 'ruta') {
+          const actualizado = estado.clientes.find(x => x.id === clienteId);
+          const idx = rutaOrdenada.findIndex(x => x.id === clienteId);
+          if (idx !== -1) rutaOrdenada[idx] = actualizado;
+          renderClienteActual();
+    } else {
+          verMiReporte(managerReporteId, origenReporte);
+    }
+}
+
 // ============================================================
 // VISTA MANAGER — MAPA COMPLETO
 // ============================================================
@@ -2513,7 +2552,13 @@ function verMiReporte(managerId, origen) {
         const statsEl = document.getElementById('reporteStatsTexto');
         if (statsEl) statsEl.innerHTML = `<b>Efectividad:</b> ${efectividad != null ? efectividad + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${dias} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmo.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${fechaFin || 'Sin datos aun'}${vencimientoTxt}`;
 
-        const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver', no_atendio: 'No atendio' };
+        const etiquetas = { pendiente: 'Pendiente', activo: 'Sigue activa', cita: 'Cita efectiva', retirado: 'No volver', no_atendio: 'No atendió a la cita' };
+        const opcionesGestion = [
+                    { valor: 'activo', texto: 'Sigue activa' },
+                    { valor: 'no_atendio', texto: 'No atendió a la cita' },
+                    { valor: 'cita', texto: 'Cita efectiva' },
+                    { valor: 'retirado', texto: 'No volver' }
+        ];
         const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
 
         document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
@@ -2523,10 +2568,86 @@ function verMiReporte(managerId, origen) {
                                     const telefonoTxt = c.citaTelefono ? ` · Tel: ${c.citaTelefono}` : '';
                                     detalleCita = ` - Cita: ${c.citaFecha || ''} ${c.citaHora || ''}`.trim() + telefonoTxt;
                     }
-                    return `<div class="fila-manager"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div></div>`;
+                    // Circulitos de radio para cambiar la gestion sin salir de la lista. Cada
+                    // circulito representa una opcion posible; el que corresponde al estatus
+                    // actual del cliente aparece ya marcado.
+                    const radios = opcionesGestion.map(op =>
+                                `<label><input type="radio" name="gestion_${c.id}" ${c.estatus === op.valor ? 'checked' : ''} onclick="seleccionarGestionReporte('${c.id}','${op.valor}',this)"> ${op.texto}</label>`
+                    ).join('');
+                    const botonBorrar = c.horaLlegada ? `<button class="chip-link" style="background:#FCE4E4; color:#8A1F1F;" onclick="borrarGestionCliente('${c.id}','reporte')">🗑️ Borrar gestión</button>` : '';
+                    return `<div class="fila-manager" style="flex-wrap:wrap; row-gap:10px;"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div><div class="fila-manager-gestion">${radios}${botonBorrar}</div><div id="citaFormReporte_${c.id}" style="width:100%;"></div></div>`;
         }).join('');
 
         mostrarPantalla('pantallaReporteManager');
+}
+
+// Cuando el manager toca uno de los circulitos de "Mi reporte" para cambiar la
+// gestion de un cliente directamente desde la lista (sin entrar a la ruta paso a
+// paso). "Cita efectiva" abre un formulario chiquito para pedir fecha/hora/telefono
+// antes de guardar. "No volver" pide confirmacion antes de guardar, igual que en la
+// ruta normal; si el manager cancela, se vuelve a dibujar la lista para que el
+// circulito regrese a la opcion que tenia antes.
+async function seleccionarGestionReporte(clienteId, nuevoEstatus, inputEl) {
+    const c = estado.clientes.find(x => x.id === clienteId);
+    if (!c) return;
+
+    if (nuevoEstatus === 'retirado') {
+          if (!confirm(`¿Seguro que quieres marcar a "${c.nombre}" como no volver / retirado?`)) {
+                    verMiReporte(managerReporteId, origenReporte);
+                    return;
+          }
+          await guardarGestionReporte(clienteId, 'retirado');
+          return;
+    }
+
+    if (nuevoEstatus === 'cita') {
+          mostrarFormCitaReporte(clienteId);
+          return;
+    }
+
+    await guardarGestionReporte(clienteId, nuevoEstatus);
+}
+
+async function guardarGestionReporte(clienteId, tipo, extra) {
+    const horaTexto = horaAhora();
+    const fechaISO = new Date().toISOString();
+    const ok = await actualizarEstado((est) => {
+          const clienteReal = est.clientes.find(x => x.id === clienteId);
+          if (!clienteReal) return;
+          clienteReal.estatus = tipo;
+          clienteReal.horaLlegada = horaTexto;
+          clienteReal.fechaHoraLlegada = fechaISO;
+          if (tipo === 'cita' && extra) {
+                    clienteReal.citaFecha = extra.citaFecha;
+                    clienteReal.citaHora = extra.citaHora;
+                    clienteReal.citaTelefono = extra.citaTelefono;
+                    clienteReal.citaObservaciones = extra.citaObservaciones;
+          }
+    });
+
+    if (!ok) {
+          alert('No se pudo guardar esta gestion. Revisa tu conexion e intenta de nuevo tocando el mismo circulito.');
+          return;
+    }
+
+    verMiReporte(managerReporteId, origenReporte);
+}
+
+function mostrarFormCitaReporte(clienteId) {
+    const wrap = document.getElementById(`citaFormReporte_${clienteId}`);
+    if (!wrap) return;
+    if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `<div class="form-cita"><div class="fila-2"><div><label>Día</label><input type="date" id="citaFechaReporte_${clienteId}" class="input"></div><div><label>Hora</label><input type="time" id="citaHoraReporte_${clienteId}" class="input"></div></div><div><label>Teléfono</label><input type="tel" id="citaTelefonoReporte_${clienteId}" class="input" placeholder="Teléfono de contacto"></div><div><label>Observaciones</label><textarea id="citaObservacionesReporte_${clienteId}" class="textarea" style="min-height:60px;" placeholder="Notas de la cita..."></textarea></div><button class="btn btn-ambar" onclick="guardarCitaDesdeReporte('${clienteId}')">Guardar cita y completar</button></div>`;
+}
+
+async function guardarCitaDesdeReporte(clienteId) {
+    const extra = {
+          citaFecha: document.getElementById(`citaFechaReporte_${clienteId}`)?.value || '',
+          citaHora: document.getElementById(`citaHoraReporte_${clienteId}`)?.value || '',
+          citaTelefono: document.getElementById(`citaTelefonoReporte_${clienteId}`)?.value || '',
+          citaObservaciones: document.getElementById(`citaObservacionesReporte_${clienteId}`)?.value || ''
+    };
+    await guardarGestionReporte(clienteId, 'cita', extra);
 }
 
 function volverDeReporte() {

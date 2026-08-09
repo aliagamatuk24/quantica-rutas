@@ -2049,8 +2049,13 @@ function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo, opciones) {
     if (opts.ranking) {
         fila++;
         escribirCelda('Ranking por avance:', { negrita: true });
-        const filasRanking = estado.managers
-            .filter(m => !m.esOficina || subManagersDe(m.id).length === 0)
+        // opts.ranking puede ser "true" (ranking de todo el negocio) o un arreglo de
+        // managers puntual (por ejemplo, solo los de una oficina) para que el ranking
+        // coincida exactamente con quienes salen en este Excel.
+        const listaParaRanking = Array.isArray(opts.ranking)
+            ? opts.ranking
+            : estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
+        const filasRanking = listaParaRanking
             .map(m => {
                         const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                         const t = contarGestion(clientesM);
@@ -2078,13 +2083,18 @@ async function descargarWorkbook(wb, nombreArchivo) {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-async function exportarExcelGeneral() {
+// Arma y descarga un Excel con hoja Resumen (grafico grupal + ranking), hoja "Todos los
+// clientes" y una hoja por manager — a partir de CUALQUIER lista de managers que se le
+// pase. Asi, el mismo codigo sirve tanto para "Excel general" (admin, todos los
+// managers del negocio) como para "Excel del equipo" (manager de oficina, solo sus
+// sub-managers), sin duplicar logica.
+async function construirYDescargarExcel(managers, nombreArchivoBase, tituloGrupal) {
       const resumen = [];
       const consolidado = [];
       const hojasPorManager = [];
       let clientesDeTodoElEquipo = [];
 
-      estado.managers.forEach(m => {
+      managers.forEach(m => {
               const clientesM = ordenarPorRuta(estado.clientes.filter(c => c.managerId === m.id));
               clientesDeTodoElEquipo = clientesDeTodoElEquipo.concat(clientesM);
 
@@ -2150,7 +2160,7 @@ async function exportarExcelGeneral() {
 
       // Hoja Resumen: grafico 3D grupal (todo el equipo junto) + la tabla de siempre.
       const hojaResumen = wb.addWorksheet('Resumen');
-      const filaTablaResumen = insertarGrafico3DEnHoja(wb, hojaResumen, clientesDeTodoElEquipo, 'Equipo completo', { ranking: true });
+      const filaTablaResumen = insertarGrafico3DEnHoja(wb, hojaResumen, clientesDeTodoElEquipo, tituloGrupal, { ranking: managers });
       escribirTablaDesdeObjetos(hojaResumen, filaTablaResumen, resumen);
 
       // Hoja con todos los clientes de todos los managers juntos (sin grafico, es la
@@ -2169,7 +2179,26 @@ async function exportarExcelGeneral() {
               escribirTablaDesdeObjetos(hoja, filaTabla, h.filas);
       });
 
-      await descargarWorkbook(wb, `Quantica_Rutas_${new Date().toISOString().slice(0,10)}.xlsx`);
+      await descargarWorkbook(wb, `${nombreArchivoBase}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// Excel general del admin: TODOS los managers del negocio.
+async function exportarExcelGeneral() {
+      await construirYDescargarExcel(estado.managers, 'Quantica_Rutas', 'Equipo completo');
+}
+
+// Excel de un manager de oficina: solo SU equipo (sus sub-managers), sin ver ni exponer
+// datos de otras oficinas. Se usa desde el boton "Descargar Excel del equipo" en
+// "Mi equipo".
+async function exportarExcelEquipo(oficinaId) {
+      const oficina = estado.managers.find(m => m.id === oficinaId);
+      const managers = subManagersDe(oficinaId);
+      if (managers.length === 0) {
+                alert('Todavia no tienes sub-managers en tu equipo para exportar.');
+                return;
+      }
+      const nombreOficina = oficina ? oficina.nombre : 'Mi equipo';
+      await construirYDescargarExcel(managers, `Equipo_${nombreOficina.replace(/\s+/g, '_')}`, nombreOficina);
 }
 
 // ============================================================

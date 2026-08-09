@@ -210,7 +210,7 @@
   </div>
 </div>
 
-<div id="pantallaEquipo" class="pantalla"><header class="topbar topbar-violeta"><div class="topbar-title"><span class="topbar-emoji">🧑‍💼</span><div><h2>Mi equipo</h2><p id="equipoNombreOficina">Manager de oficina</p></div></div><button class="btn-icono" onclick="volverDeEquipo()" title="Cerrar">✕</button></header><div class="contenido"><div class="tarjeta" style="display:flex; align-items:center; gap:16px;"><div id="equipoDona" class="dona" style="width:64px; height:64px;"></div><p id="equipoResumenTexto" class="texto-suave" style="margin:0;"></p></div><div class="tarjeta"><p id="equipoStatsTexto" class="texto-suave" style="margin:0;"></p></div><button class="btn-chico btn-ambar" style="margin:0 0 10px;" onclick="toggleGrafico3D(this, 'grafico3dGrupoEquipo', null, 'equipo')">📊 Ver estadísticas 3D del equipo</button><div id="grafico3dGrupoEquipo"></div><button class="btn-chico btn-ambar" style="margin:0 0 10px;" onclick="toggleCilindro3D(this, 'cilindro3dGrupoEquipo', null, 'equipo')">🎯 Ver cilindro 3D del equipo</button><div id="cilindro3dGrupoEquipo"></div><button class="btn-chico btn-violeta" style="margin:0 0 10px;" onclick="abrirTablero(oficinaActivaId, 'equipo')">📽️ Modo pantalla grande</button><div id="listaEquipo" class="lista-managers" style="margin-top:16px;"></div></div></div><!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
+<div id="pantallaEquipo" class="pantalla"><header class="topbar topbar-violeta"><div class="topbar-title"><span class="topbar-emoji">🧑‍💼</span><div><h2>Mi equipo</h2><p id="equipoNombreOficina">Manager de oficina</p></div></div><button class="btn-icono" onclick="volverDeEquipo()" title="Cerrar">✕</button></header><div class="contenido"><div class="tarjeta" style="display:flex; align-items:center; gap:16px;"><div id="equipoDona" class="dona" style="width:64px; height:64px;"></div><p id="equipoResumenTexto" class="texto-suave" style="margin:0;"></p></div><div class="tarjeta"><p id="equipoStatsTexto" class="texto-suave" style="margin:0;"></p></div><button class="btn-chico btn-ambar" style="margin:0 0 10px;" onclick="toggleGrafico3D(this, 'grafico3dGrupoEquipo', null, 'equipo')">📊 Ver estadísticas 3D del equipo</button><div id="grafico3dGrupoEquipo"></div><button class="btn-chico btn-ambar" style="margin:0 0 10px;" onclick="toggleCilindro3D(this, 'cilindro3dGrupoEquipo', null, 'equipo')">🎯 Ver cilindro 3D del equipo</button><div id="cilindro3dGrupoEquipo"></div><button class="btn-chico btn-violeta" style="margin:0 0 10px;" onclick="abrirTablero(oficinaActivaId, 'equipo')">📽️ Modo pantalla grande</button><button class="btn-chico btn-coral" style="margin:0 0 10px;" onclick="exportarExcelEquipo(oficinaActivaId)">⬇ Descargar Excel del equipo</button><div id="listaEquipo" class="lista-managers" style="margin-top:16px;"></div></div></div><!-- PANTALLA: MANAGER - RUTA (cliente actual) -->
 <div id="pantallaRuta" class="pantalla">
   <header class="topbar topbar-teal">
     <div class="topbar-title">
@@ -323,6 +323,6 @@
 <!-- Chart.js: graficos de barras y de linea, para el tablero "Modo pantalla grande"
      (distribucion por dia de semana y curva de avance en el tiempo). -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>

@@ -117,6 +117,14 @@ body.fondo-video-activo::before {
   color: #FFFFFF;
   text-shadow: 0 0 6px rgba(255, 178, 102, 0.85), 0 0 14px rgba(255, 107, 91, 0.55);
   white-space: nowrap;
+  /* Fondo tipo "pastilla" semitransparente: ahora que la pantalla de saludo tiene
+     mas contenido (el cilindro 3D nuevo), esta marca fija puede quedar flotando
+     sobre texto de la tarjeta al hacer scroll. Con este fondo oscuro se sigue
+     leyendo bien encima de cualquier cosa, en vez de verse amontonada. */
+  background: rgba(11, 18, 32, 0.72);
+  padding: 6px 18px;
+  border-radius: 999px;
+  backdrop-filter: blur(2px);
 }
 
 /* En pantallas angostas (celulares chicos), los textos mas largos como "LA RUTA DEL

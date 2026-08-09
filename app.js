@@ -50,6 +50,10 @@ function formatearFechaHora(iso) { if (!iso) return ''; const d = new Date(iso);
 function mostrarPantalla(id) {
     document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
     document.getElementById(id).classList.add('activa');
+    // Cierra los cilindros 3D (Three.js) que hayan quedado abiertos en otras pantallas:
+    // cada uno usa su propio "contexto WebGL" y el navegador solo permite un numero
+    // limitado abiertos a la vez, asi que hay que cerrarlos apenas se dejan de ver.
+    if (typeof destruirCilindros3DFueraDe === 'function') destruirCilindros3DFueraDe(id);
 }
 
 function mostrarModal(id) { document.getElementById(id).classList.add('activo'); }
@@ -182,8 +186,8 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -581,8 +585,8 @@ function verEquipo(oficinaId, origen) {
                                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div>`;
+                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -1042,11 +1046,29 @@ async function geocodificarNominatim(direccion) {
     return null;
 }
 
+// Tercer y ultimo intento, con Google Maps (mas caro, por eso va al final: solo
+// se usa cuando las dos opciones gratuitas de arriba, Census y Nominatim, ya
+// fallaron). La llave de Google nunca esta en este archivo (que cualquiera
+// puede ver) — vive escondida en el servidor, dentro de geocode-google.js.
+async function geocodificarGoogle(direccion) {
+    try {
+        const url = `/api/geocode-google?direccion=${encodeURIComponent(direccion)}`;
+        const r = await fetch(url);
+        const data = await r.json();
+        if (data && data.lat != null && data.lng != null) {
+            return { lat: data.lat, lng: data.lng };
+        }
+    } catch (e) { console.error('Geocodificacion Google fallo', e); }
+    return null;
+}
+
 async function geocodificar(direccion) {
     const censo = await geocodificarCensus(direccion);
     if (censo) return censo;
     await esperar(1100);
-    return await geocodificarNominatim(direccion);
+    const nominatim = await geocodificarNominatim(direccion);
+    if (nominatim) return nominatim;
+    return await geocodificarGoogle(direccion);
 }
 
 function normalizarTexto(s) {
@@ -1362,6 +1384,222 @@ function toggleGrafico3D(btn, contenedorId, managerId, modo) {
     btn.textContent = '📊 Ocultar estadísticas 3D';
 }
 
+// ============================================================
+// CILINDRO 3D GIRATORIO DE AVANCE (Three.js)
+// ============================================================
+// Esto es DISTINTO del grafico de barras de arriba (graficoImgHTML): aquel es una imagen
+// fija dibujada con canvas 2D. Este cilindro es de verdad interactivo — gira solo todo el
+// tiempo, esta hecho con la libreria Three.js (WebGL, mismo tipo de tecnologia que usan
+// los videojuegos en el navegador) y su color cambia segun el semaforo del manager
+// (calcularSemaforo: la MISMA logica de rojo/amarillo/verde que ya se usa en toda la app,
+// no un porcentaje simple). Adentro del cilindro se ve un "relleno" que sube segun el
+// avance, y al lado el texto con las cifras: asignadas, cuantas vas, cuantas te faltan.
+//
+// IMPORTANTE - por que existe un limite de cilindros abiertos a la vez:
+// cada cilindro que se dibuja abre su propio "contexto WebGL" (como una ventanita 3D
+// aparte adentro del navegador). Los celulares y navegadores solo dejan tener abiertos
+// entre 8 y 16 contextos WebGL a la vez; si se abren mas de la cuenta, la pantalla se
+// pone en blanco o el navegador empieza a cerrar los mas viejos sin avisar. Para evitar
+// eso: (1) cada vez que cambias de pantalla, se cierran solos los cilindros de la
+// pantalla anterior (ver mostrarPantalla), y (2) nunca se dejan mas de
+// MAX_CILINDROS_3D_ACTIVOS abiertos; si se abre uno de mas, se cierra el mas viejo solo.
+const MAX_CILINDROS_3D_ACTIVOS = 5;
+const registroCilindros3D = new Map(); // contenedorId -> { renderer, animId, resizeObserver, marcarMuerto, limpiarExtra }
+
+function destruirCilindro3D(contenedorId) {
+    const reg = registroCilindros3D.get(contenedorId);
+    if (!reg) return;
+    if (reg.marcarMuerto) reg.marcarMuerto();
+    if (reg.animId) cancelAnimationFrame(reg.animId);
+    if (reg.resizeObserver) reg.resizeObserver.disconnect();
+    if (reg.limpiarExtra) reg.limpiarExtra();
+    try { reg.renderer.dispose(); reg.renderer.forceContextLoss && reg.renderer.forceContextLoss(); } catch (e) {}
+    registroCilindros3D.delete(contenedorId);
+}
+
+// Cierra todos los cilindros 3D que NO pertenezcan a la pantalla indicada (id de
+// pantalla, ej. 'pantallaSaludo'). Se llama automaticamente desde mostrarPantalla().
+function destruirCilindros3DFueraDe(idPantallaActiva) {
+    [...registroCilindros3D.keys()].forEach((contenedorId) => {
+        const el = document.getElementById(contenedorId);
+        const pantalla = el ? el.closest('.pantalla') : null;
+        if (!pantalla || pantalla.id !== idPantallaActiva) destruirCilindro3D(contenedorId);
+    });
+}
+
+// Cifras del cilindro: asignadas (total), vas (gestionados), te faltan (por gestionar),
+// avance en %. Usa contarGestion, la misma cuenta que ya usa toda la app.
+function statsCilindro(clientes) {
+    const { total, gestionados, porGestionar } = contarGestion(clientes);
+    const avance = total > 0 ? Math.round((gestionados / total) * 100) : 0;
+    return { total, gestionados, porGestionar, avance };
+}
+
+const COLORES_SEMAFORO_3D = { verde: 0x22C55E, amarillo: 0xFFB020, rojo: 0xEF4444, gris: 0x94A3B8 };
+
+// Crea (o reemplaza, si ya habia uno) un cilindro 3D giratorio dentro del elemento con id
+// "contenedorId". Si "manager" viene, se usa calcularSemaforo (fecha limite vs ritmo real)
+// para el color; si no hay un solo manager (vistas de grupo, como "Mi equipo" o "Todos los
+// managers"), se usa el % de avance como aproximacion. "tituloOverride" reemplaza el nombre
+// del manager en el texto para esos casos de grupo.
+function crearCilindro3D(contenedorId, manager, clientes, tituloOverride) {
+    const cont = document.getElementById(contenedorId);
+    if (!cont) return;
+    const yaExistia = registroCilindros3D.has(contenedorId);
+    destruirCilindro3D(contenedorId);
+    if (!yaExistia) {
+        while (registroCilindros3D.size >= MAX_CILINDROS_3D_ACTIVOS) {
+            const masViejo = registroCilindros3D.keys().next().value;
+            destruirCilindro3D(masViejo);
+        }
+    }
+
+    if (typeof THREE === 'undefined') {
+        cont.innerHTML = `<p class="texto-suave" style="margin:6px 0 0;">No se pudo cargar el cilindro 3D (revisa tu conexion e intenta de nuevo).</p>`;
+        return;
+    }
+
+    const { total, gestionados, porGestionar, avance } = statsCilindro(clientes);
+    const { color, texto } = manager
+        ? calcularSemaforo(manager, clientes)
+        : { color: total === 0 ? 'gris' : (avance >= 80 ? 'verde' : avance >= 50 ? 'amarillo' : 'rojo'), texto: '' };
+    const colorHex = COLORES_SEMAFORO_3D[color] || COLORES_SEMAFORO_3D.gris;
+    const colorCss = '#' + colorHex.toString(16).padStart(6, '0');
+    const titulo = tituloOverride || (manager ? manager.nombre : 'Equipo');
+
+    cont.innerHTML = `<div class="cilindro3d-wrap">
+        <div class="cilindro3d-canvas" id="${contenedorId}-canvas"></div>
+        <div class="cilindro3d-info">
+            <div class="cilindro3d-titulo">${titulo}</div>
+            <div class="cilindro3d-avance" style="color:${colorCss};">${avance}%</div>
+            <div class="cilindro3d-linea"><b>Asignadas:</b> ${total}</div>
+            <div class="cilindro3d-linea"><b>Vas:</b> ${gestionados}</div>
+            <div class="cilindro3d-linea"><b>Te faltan:</b> ${porGestionar}</div>
+            ${texto ? `<div class="cilindro3d-linea cilindro3d-detalle">🚦 ${texto}</div>` : ''}
+        </div>
+    </div>`;
+
+    const canvasHost = document.getElementById(`${contenedorId}-canvas`);
+    const ancho = canvasHost.clientWidth || 200;
+    const alto = 220;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, ancho / alto, 0.1, 100);
+    camera.position.set(0, 1.1, 6.2);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(ancho, alto);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    canvasHost.appendChild(renderer.domElement);
+
+    const luz1 = new THREE.DirectionalLight(0xffffff, 1.1);
+    luz1.position.set(3, 5, 4);
+    scene.add(luz1);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+
+    // Tanque exterior transparente (representa el 100%).
+    const geoExterior = new THREE.CylinderGeometry(1.4, 1.4, 3.6, 40, 1, true);
+    const matExterior = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+    const tanque = new THREE.Mesh(geoExterior, matExterior);
+
+    // Aros para que se vea como un tanque medidor con marcas.
+    const aros = new THREE.Group();
+    const arosGeos = [];
+    for (let i = 0; i <= 4; i++) {
+        const geoAro = new THREE.TorusGeometry(1.4, 0.012, 8, 40);
+        const matAro = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 });
+        const aro = new THREE.Mesh(geoAro, matAro);
+        aro.rotation.x = Math.PI / 2;
+        aro.position.y = -1.8 + i * 0.9;
+        aros.add(aro);
+        arosGeos.push(geoAro, matAro);
+    }
+
+    // Relleno interior solido, coloreado segun el semaforo: su altura representa el %
+    // de avance, siempre pegado a la base del tanque (como un termometro).
+    const alturaLlena = Math.max(0.05, (avance / 100) * 3.6);
+    const geoInterior = new THREE.CylinderGeometry(1.28, 1.28, alturaLlena, 40);
+    const matInterior = new THREE.MeshPhongMaterial({ color: colorHex, shininess: 60 });
+    const relleno = new THREE.Mesh(geoInterior, matInterior);
+    relleno.position.y = -1.8 + alturaLlena / 2;
+
+    const grupo = new THREE.Group();
+    grupo.add(tanque);
+    grupo.add(aros);
+    grupo.add(relleno);
+    scene.add(grupo);
+
+    let vivo = true;
+    function animar() {
+        if (!vivo) return;
+        grupo.rotation.y += 0.012;
+        renderer.render(scene, camera);
+        reg.animId = requestAnimationFrame(animar);
+    }
+
+    const reg = {
+        renderer,
+        animId: 0,
+        resizeObserver: null,
+        marcarMuerto: () => { vivo = false; },
+        limpiarExtra: () => {
+            geoExterior.dispose(); matExterior.dispose();
+            geoInterior.dispose(); matInterior.dispose();
+            arosGeos.forEach(g => g.dispose && g.dispose());
+        }
+    };
+    registroCilindros3D.set(contenedorId, reg);
+    animar();
+
+    // Si el contenedor cambia de ancho (por ejemplo al rotar el celular), reajustamos.
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => {
+            const w = canvasHost.clientWidth || ancho;
+            renderer.setSize(w, alto);
+            camera.aspect = w / alto;
+            camera.updateProjectionMatrix();
+        });
+        ro.observe(canvasHost);
+        reg.resizeObserver = ro;
+    }
+}
+
+// Version en cilindro 3D interactivo del boton "Ver estadisticas 3D" de toda la vida.
+// Mismos "modo" que toggleGrafico3D, para que sea facil de entender: 'individual' (un
+// manager), 'admin' (todos los managers, vista del administrador), 'equipo' (todos los
+// sub-managers de la oficina que se esta viendo en "Mi equipo").
+function toggleCilindro3D(btn, contenedorId, managerId, modo) {
+    const cont = document.getElementById(contenedorId);
+    if (!cont) return;
+    if (cont.innerHTML) {
+        destruirCilindro3D(contenedorId);
+        cont.innerHTML = '';
+        btn.textContent = '🎯 Ver cilindro 3D';
+        return;
+    }
+    let clientes, manager = null, titulo;
+    if (modo === 'admin') {
+        clientes = estado.clientes;
+        titulo = 'Todos los managers';
+    } else if (modo === 'equipo') {
+        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
+        clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
+        titulo = 'Mi equipo';
+    } else {
+        manager = estado.managers.find(x => x.id === managerId);
+        clientes = estado.clientes.filter(c => c.managerId === managerId);
+        titulo = manager ? manager.nombre : 'Manager';
+    }
+    if (clientes.length === 0) {
+        cont.innerHTML = `<p class="texto-suave" style="margin:6px 0 0;">Todavia no hay clientes cargados para mostrar estadisticas.</p>`;
+        btn.textContent = '🎯 Ocultar cilindro 3D';
+        return;
+    }
+    crearCilindro3D(contenedorId, manager, clientes, titulo);
+    btn.textContent = '🎯 Ocultar cilindro 3D';
+}
+
 // Pone primero a los clientes gestionados mas recientemente (para que en el Excel
 // no queden salteados entre cientos de pendientes). Los que nunca se han tocado
 // quedan al final, en el mismo orden en que se cargaron.
@@ -1585,6 +1823,14 @@ function prepararSaludo(manager) {
         const clientesM = estado.clientes.filter(c => c.managerId === manager.id);
         const contGrafico = document.getElementById('saludoGrafico3D');
         if (contGrafico) contGrafico.innerHTML = clientesM.length > 0 ? graficoImgHTML(clientesM, 'Tu avance') : '';
+        // Cilindro 3D giratorio con las mismas cifras (asignadas/vas/te faltan/avance),
+        // pero grande e interactivo — se agrega AL LADO del grafico de arriba, no lo
+        // reemplaza. Se ve apenas el manager entra a su app, sin tocar ningun boton.
+        const contCilindro = document.getElementById('saludoCilindro3D');
+        if (contCilindro) {
+                    if (clientesM.length > 0) crearCilindro3D('saludoCilindro3D', manager, clientesM);
+                    else { destruirCilindro3D('saludoCilindro3D'); contCilindro.innerHTML = ''; }
+        }
 }
 
 async function iniciarJornada() {

@@ -182,12 +182,17 @@ function renderPanelAdmin() {
                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
                     const supervisorTxt = m.supervisorId ? ` - Supervisor: ${(estado.managers.find(x => x.id === m.supervisorId) || {}).nombre || '—'}` : '';
-                    const opcionesOficinas = estado.managers.filter(x => x.esOficina && x.id !== m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
+                    // Cualquier manager puede ser supervisor de otro (no solo los marcados "Es
+                    // oficina"): asi se arman cadenas de varios niveles. candidatosSupervisorPara
+                    // ya excluye a la propia persona y a quienes ya esten debajo suyo (para no
+                    // crear un ciclo, por ejemplo A supervisando a B y B supervisando a A).
+                    const opcionesOficinas = candidatosSupervisorPara(m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
+                    const equipoTxt = tieneEquipo(m.id) ? ` <span class="chip-link" style="cursor:default;">Equipo: ${subordinadosRecursivos(m.id).length}</span>` : '';
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
+                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button>${tieneEquipo(m.id) ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${equipoTxt}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -438,6 +443,62 @@ function subManagersDe(oficinaId) {
         return estado.managers.filter(m => m.supervisorId === oficinaId);
 }
 
+// ------------------------------------------------------------------
+// JERARQUIA DE VARIOS NIVELES (oficinas con sub-managers que a su vez
+// tienen sus propios sub-managers, y asi hacia abajo las veces que haga
+// falta). Estas funciones son las que hacen que alguien "de arriba" pueda
+// ver y manejar a TODOS los que estan debajo de el, no solo a su gente
+// directa.
+// ------------------------------------------------------------------
+
+// Devuelve TODOS los subordinados de un manager sin importar cuantos
+// niveles de profundidad tengan debajo (hijos directos, nietos,
+// bisnietos...). Ejemplo: si Ana supervisa a Luis, y Luis a su vez
+// supervisa a Pedro, subordinadosRecursivos('idDeAna') trae tanto a Luis
+// como a Pedro. Se usa en todo lo que sea "ver/manejar mi equipo completo"
+// (a diferencia de subManagersDe, que solo trae un nivel). Tiene
+// proteccion contra ciclos para nunca entrar en un bucle infinito.
+function subordinadosRecursivos(managerId) {
+        const resultado = [];
+        const vistos = new Set([managerId]);
+        let pendientes = [managerId];
+        while (pendientes.length > 0) {
+                const directos = estado.managers.filter(m => pendientes.includes(m.supervisorId) && !vistos.has(m.id));
+                if (directos.length === 0) break;
+                directos.forEach(m => vistos.add(m.id));
+                resultado.push(...directos);
+                pendientes = directos.map(m => m.id);
+        }
+        return resultado;
+}
+
+// Dice si "posibleDescendienteId" esta en algun nivel debajo de "deId"
+// (hijo, nieto, etc.). Sirve para no dejar asignar como supervisor de
+// alguien a una persona que ya esta debajo de el mismo: eso crearia un
+// ciclo (A supervisa a B, B supervisa a A) y la app entraria en un bucle.
+function esDescendienteDe(posibleDescendienteId, deId) {
+        return subordinadosRecursivos(deId).some(m => m.id === posibleDescendienteId);
+}
+
+// Todos los managers que hoy podrian ser el supervisor de "managerId":
+// cualquiera menos el mismo y menos quienes ya esten debajo suyo (para no
+// crear ciclos). Si managerId es null (se esta creando un manager nuevo
+// que todavia no existe), se puede elegir cualquiera.
+function candidatosSupervisorPara(managerId) {
+        if (!managerId) return estado.managers;
+        return estado.managers.filter(m => m.id !== managerId && !esDescendienteDe(m.id, managerId));
+}
+
+// Un manager "tiene equipo" (puede entrar a "Mi equipo" / "Ver equipo") si
+// al menos una persona lo tiene como supervisor, sin importar si esta
+// marcado como "Es oficina" o no. Antes esto dependia solo del casillero
+// "Es oficina", lo que limitaba la app a un unico nivel de jerarquia. Con
+// esto, cualquier persona que tenga gente debajo (aunque ella misma
+// tambien tenga un jefe arriba) puede ver y manejar a todo su equipo.
+function tieneEquipo(managerId) {
+        return estado.managers.some(m => m.supervisorId === managerId);
+}
+
 // ============================================================
 // METRICAS NUEVAS PARA EL TABLERO INTERACTIVO Y LOS EXCEL
 // ============================================================
@@ -486,9 +547,12 @@ function rankingPorAvance(oficinaId) {
 // null si no pertenece a ninguna oficina (por ejemplo, si el manager de oficina no
 // tiene ningun sub-manager todavia, o si el mismo es la oficina).
 function posicionEnEquipo(manager) {
-        const oficina = oficinaDe(manager);
-        if (!oficina || oficina.id === manager.id) return null;
-        const ranking = rankingPorAvance(oficina.id);
+        // Se compara contra sus companeros de equipo: los que comparten el MISMO
+        // supervisor directo que el (no contra toda la empresa), asi que esto sirve
+        // igual de bien para alguien que depende de la oficina como para alguien que
+        // depende de un sub-manager intermedio.
+        if (!manager || !manager.supervisorId) return null;
+        const ranking = rankingPorAvance(manager.supervisorId);
         const fila = ranking.find(f => f.manager.id === manager.id);
         if (!fila) return null;
         return { posicion: fila.posicion, deCuantos: ranking.length, avance: fila.avance };
@@ -600,7 +664,9 @@ async function crearManager() {
 
 function abrirModalNuevoManager() {
         const sel = document.getElementById('nuevoManagerSupervisor');
-        const opciones = estado.managers.filter(m => m.esOficina).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        // Un manager nuevo todavia no existe, asi que no puede haber ciclos: se puede
+        // elegir como supervisor a cualquiera de los managers ya creados.
+        const opciones = candidatosSupervisorPara(null).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
         sel.innerHTML = `<option value="">Sin supervisor</option>${opciones}`;
         document.getElementById('nuevoManagerEsOficina').checked = false;
         mostrarModal('modalNuevoManager');
@@ -632,6 +698,14 @@ async function toggleActivo(managerId, valor) {
 }
 
 async function asignarSupervisor(managerId, supervisorId) {
+        // Proteccion contra ciclos: no dejar asignar como supervisor a alguien que ya
+        // esta debajo de este manager (eso haria que se supervisaran mutuamente y la
+        // app entraria en un bucle infinito al calcular equipos).
+        if (supervisorId && (supervisorId === managerId || esDescendienteDe(supervisorId, managerId))) {
+                    alert('No se puede asignar como supervisor a alguien que ya esta debajo de este manager (eso crearia un ciclo). Elegi otra persona.');
+                    renderPanelAdmin();
+                    return;
+        }
         const ok = await actualizarEstado((est) => {
                     const m = est.managers.find(x => x.id === managerId);
                     if (m) m.supervisorId = supervisorId || null;
@@ -664,7 +738,9 @@ function verEquipo(oficinaId, origen) {
         const oficina = estado.managers.find(m => m.id === oficinaId);
         if (!oficina) return;
         document.getElementById('equipoNombreOficina').textContent = oficina.nombre;
-        const subs = subManagersDe(oficinaId);
+        // subordinadosRecursivos (no solo subManagersDe) para traer a TODOS los que
+        // estan debajo, sin importar cuantos niveles de profundidad tengan.
+        const subs = subordinadosRecursivos(oficinaId);
         const idsSubs = subs.map(m => m.id);
         const clientesEquipo = estado.clientes.filter(c => idsSubs.includes(c.managerId));
 
@@ -679,16 +755,20 @@ function verEquipo(oficinaId, origen) {
         document.getElementById('equipoStatsTexto').innerHTML = `<b>Tasa de efectividad:</b> ${efectividadEq != null ? efectividadEq + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${diasEq} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmoEq.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${finEq || 'Sin datos aun'}`;
 
         document.getElementById('listaEquipo').innerHTML = subs.length === 0
-            ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes sub-managers asignados.</div>`
+            ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes a nadie en tu equipo.</div>`
                     : subs.map(m => {
                                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                                     const bloqueado = managersBloqueados.has(m.id);
                                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
+                                    // Si esta persona a su vez tiene su propio equipo debajo, se le agrega un
+                                    // boton "Ver equipo" para poder entrar puntualmente a ver solo esa rama.
+                                    const subEquipoTxt = tieneEquipo(m.id) ? ` - Tiene su propio equipo (${subordinadosRecursivos(m.id).length})` : '';
+                                    const botonVerEquipo = tieneEquipo(m.id) ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'equipo')">Ver su equipo</button>` : '';
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
+                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${botonVerEquipo}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${subEquipoTxt}</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -1050,10 +1130,17 @@ function reproducirAudioBienvenida(manager) {
 // donde sacar el fondo personalizado a aplicar.
 function oficinaDe(manager) {
         if (!manager) return null;
-        if (manager.esOficina) return manager;
-        if (manager.supervisorId) {
-                    const sup = estado.managers.find(x => x.id === manager.supervisorId);
-                    if (sup && sup.esOficina) return sup;
+        // Sube por la cadena de supervisores (por si hay varios niveles) hasta
+        // encontrar a quien tenga marcado "Es oficina". "vistos" evita que un dato
+        // mal asignado (un ciclo) deje esto pensando para siempre.
+        let actual = manager;
+        const vistos = new Set();
+        while (actual) {
+                if (actual.esOficina) return actual;
+                if (vistos.has(actual.id)) return null;
+                vistos.add(actual.id);
+                if (!actual.supervisorId) return null;
+                actual = estado.managers.find(x => x.id === actual.supervisorId) || null;
         }
         return null;
 }
@@ -1487,7 +1574,7 @@ function toggleGrafico3D(btn, contenedorId, managerId, modo) {
         clientes = estado.clientes;
         titulo = 'Todos los managers';
     } else if (modo === 'equipo') {
-        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
+        const idsSubs = subordinadosRecursivos(oficinaActivaId).map(m => m.id);
         clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
         titulo = 'Mi equipo';
     } else {
@@ -1700,7 +1787,7 @@ function toggleCilindro3D(btn, contenedorId, managerId, modo) {
         clientes = estado.clientes;
         titulo = 'Todos los managers';
     } else if (modo === 'equipo') {
-        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
+        const idsSubs = subordinadosRecursivos(oficinaActivaId).map(m => m.id);
         clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
         titulo = 'Mi equipo';
     } else {
@@ -1739,7 +1826,7 @@ async function abrirTablero(oficinaId, origen) {
     if (tableroOrigen === 'admin') {
         // Solo el admin puede cambiar de oficina desde el mismo tablero; el manager de
         // oficina siempre ve nada mas la suya, asi que no necesita el selector.
-        const oficinas = estado.managers.filter(m => m.esOficina);
+        const oficinas = estado.managers.filter(m => tieneEquipo(m.id));
         selector.innerHTML = `<option value="">Todos los managers</option>` +
             oficinas.map(o => `<option value="${o.id}" ${o.id === tableroOficinaId ? 'selected' : ''}>${o.nombre}</option>`).join('');
         selector.style.display = '';
@@ -1783,10 +1870,10 @@ function alcanceTablero() {
     let managers, titulo;
     if (tableroOficinaId) {
         const oficina = estado.managers.find(m => m.id === tableroOficinaId);
-        managers = subManagersDe(tableroOficinaId);
+        managers = subordinadosRecursivos(tableroOficinaId);
         titulo = oficina ? oficina.nombre : 'Equipo';
     } else {
-        managers = estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
+        managers = estado.managers.filter(m => subordinadosRecursivos(m.id).length === 0);
         titulo = 'Todos los managers';
     }
     const idsManagers = managers.map(m => m.id);
@@ -2069,7 +2156,7 @@ function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo, opciones) {
         // coincida exactamente con quienes salen en este Excel.
         const listaParaRanking = Array.isArray(opts.ranking)
             ? opts.ranking
-            : estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
+            : estado.managers.filter(m => subordinadosRecursivos(m.id).length === 0);
         const filasRanking = listaParaRanking
             .map(m => {
                         const clientesM = estado.clientes.filter(c => c.managerId === m.id);
@@ -2207,9 +2294,9 @@ async function exportarExcelGeneral() {
 // "Mi equipo".
 async function exportarExcelEquipo(oficinaId) {
       const oficina = estado.managers.find(m => m.id === oficinaId);
-      const managers = subManagersDe(oficinaId);
+      const managers = subordinadosRecursivos(oficinaId);
       if (managers.length === 0) {
-                alert('Todavia no tienes sub-managers en tu equipo para exportar.');
+                alert('Todavia no tienes a nadie en tu equipo para exportar.');
                 return;
       }
       const nombreOficina = oficina ? oficina.nombre : 'Mi equipo';
@@ -2229,7 +2316,7 @@ function prepararSaludo(manager) {
                 ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
                         : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
         const btnEquipo = document.getElementById('btnMiEquipo');
-        if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
+        if (btnEquipo) btnEquipo.style.display = tieneEquipo(manager.id) ? '' : 'none';
         // Los botones para cambiar el fondo (foto/video) solo se ven si este manager ES la
         // oficina (no un sub-manager): asi cada oficina controla su propio fondo, y no hay
         // confusion de "cual sub-manager cambio el fondo de todos".

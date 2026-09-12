@@ -182,17 +182,13 @@ function renderPanelAdmin() {
                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
                     const supervisorTxt = m.supervisorId ? ` - Supervisor: ${(estado.managers.find(x => x.id === m.supervisorId) || {}).nombre || '—'}` : '';
-                    // Cualquier manager puede ser supervisor de otro (no solo los marcados "Es
-                    // oficina"): asi se arman cadenas de varios niveles. candidatosSupervisorPara
-                    // ya excluye a la propia persona y a quienes ya esten debajo suyo (para no
-                    // crear un ciclo, por ejemplo A supervisando a B y B supervisando a A).
-                    const opcionesOficinas = candidatosSupervisorPara(m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
-                    const equipoTxt = tieneEquipo(m.id) ? ` <span class="chip-link" style="cursor:default;">Equipo: ${subordinadosRecursivos(m.id).length}</span>` : '';
+                    const puntoInicioTxt = m.puntoInicio && m.puntoInicio.direccion ? ` · Inicio: ${m.puntoInicio.direccion}` : ' · Inicio: sin definir (usa el GPS del celular)';
+                    const opcionesOficinas = estado.managers.filter(x => x.esOficina && x.id !== m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button>${tieneEquipo(m.id) ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${equipoTxt}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
+        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="definirPuntoInicio('${m.id}', '${m.nombre.replace(/'/g,"")}')">📍 Punto de inicio</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}${puntoInicioTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -443,62 +439,6 @@ function subManagersDe(oficinaId) {
         return estado.managers.filter(m => m.supervisorId === oficinaId);
 }
 
-// ------------------------------------------------------------------
-// JERARQUIA DE VARIOS NIVELES (oficinas con sub-managers que a su vez
-// tienen sus propios sub-managers, y asi hacia abajo las veces que haga
-// falta). Estas funciones son las que hacen que alguien "de arriba" pueda
-// ver y manejar a TODOS los que estan debajo de el, no solo a su gente
-// directa.
-// ------------------------------------------------------------------
-
-// Devuelve TODOS los subordinados de un manager sin importar cuantos
-// niveles de profundidad tengan debajo (hijos directos, nietos,
-// bisnietos...). Ejemplo: si Ana supervisa a Luis, y Luis a su vez
-// supervisa a Pedro, subordinadosRecursivos('idDeAna') trae tanto a Luis
-// como a Pedro. Se usa en todo lo que sea "ver/manejar mi equipo completo"
-// (a diferencia de subManagersDe, que solo trae un nivel). Tiene
-// proteccion contra ciclos para nunca entrar en un bucle infinito.
-function subordinadosRecursivos(managerId) {
-        const resultado = [];
-        const vistos = new Set([managerId]);
-        let pendientes = [managerId];
-        while (pendientes.length > 0) {
-                const directos = estado.managers.filter(m => pendientes.includes(m.supervisorId) && !vistos.has(m.id));
-                if (directos.length === 0) break;
-                directos.forEach(m => vistos.add(m.id));
-                resultado.push(...directos);
-                pendientes = directos.map(m => m.id);
-        }
-        return resultado;
-}
-
-// Dice si "posibleDescendienteId" esta en algun nivel debajo de "deId"
-// (hijo, nieto, etc.). Sirve para no dejar asignar como supervisor de
-// alguien a una persona que ya esta debajo de el mismo: eso crearia un
-// ciclo (A supervisa a B, B supervisa a A) y la app entraria en un bucle.
-function esDescendienteDe(posibleDescendienteId, deId) {
-        return subordinadosRecursivos(deId).some(m => m.id === posibleDescendienteId);
-}
-
-// Todos los managers que hoy podrian ser el supervisor de "managerId":
-// cualquiera menos el mismo y menos quienes ya esten debajo suyo (para no
-// crear ciclos). Si managerId es null (se esta creando un manager nuevo
-// que todavia no existe), se puede elegir cualquiera.
-function candidatosSupervisorPara(managerId) {
-        if (!managerId) return estado.managers;
-        return estado.managers.filter(m => m.id !== managerId && !esDescendienteDe(m.id, managerId));
-}
-
-// Un manager "tiene equipo" (puede entrar a "Mi equipo" / "Ver equipo") si
-// al menos una persona lo tiene como supervisor, sin importar si esta
-// marcado como "Es oficina" o no. Antes esto dependia solo del casillero
-// "Es oficina", lo que limitaba la app a un unico nivel de jerarquia. Con
-// esto, cualquier persona que tenga gente debajo (aunque ella misma
-// tambien tenga un jefe arriba) puede ver y manejar a todo su equipo.
-function tieneEquipo(managerId) {
-        return estado.managers.some(m => m.supervisorId === managerId);
-}
-
 // ============================================================
 // METRICAS NUEVAS PARA EL TABLERO INTERACTIVO Y LOS EXCEL
 // ============================================================
@@ -547,12 +487,9 @@ function rankingPorAvance(oficinaId) {
 // null si no pertenece a ninguna oficina (por ejemplo, si el manager de oficina no
 // tiene ningun sub-manager todavia, o si el mismo es la oficina).
 function posicionEnEquipo(manager) {
-        // Se compara contra sus companeros de equipo: los que comparten el MISMO
-        // supervisor directo que el (no contra toda la empresa), asi que esto sirve
-        // igual de bien para alguien que depende de la oficina como para alguien que
-        // depende de un sub-manager intermedio.
-        if (!manager || !manager.supervisorId) return null;
-        const ranking = rankingPorAvance(manager.supervisorId);
+        const oficina = oficinaDe(manager);
+        if (!oficina || oficina.id === manager.id) return null;
+        const ranking = rankingPorAvance(oficina.id);
         const fila = ranking.find(f => f.manager.id === manager.id);
         if (!fila) return null;
         return { posicion: fila.posicion, deCuantos: ranking.length, avance: fila.avance };
@@ -662,11 +599,47 @@ async function crearManager() {
         renderPanelAdmin();
 }
 
+// Deja que Omar (admin) le fije a un manager una direccion desde donde SIEMPRE debe
+// empezar su ruta del dia (ej. su casa u oficina), en vez de usar el GPS del celular
+// o el primer cliente pendiente. Usa un prompt() simple, igual que copiarLink() mas
+// arriba, porque es una accion ocasional de admin, no algo que el manager toque a diario.
+// Dejar el campo en blanco quita el punto de inicio fijo (vuelve a usar el GPS).
+async function definirPuntoInicio(managerId, nombreManager) {
+    const m = estado.managers.find(x => x.id === managerId);
+    if (!m) return;
+    const actual = m.puntoInicio && m.puntoInicio.direccion ? m.puntoInicio.direccion : '';
+    const direccion = prompt(`¿Desde qué dirección debe empezar SIEMPRE la ruta de "${nombreManager}"? (calle, ciudad, estado)\n\nDéjalo en blanco y presiona Aceptar para quitarlo y volver a usar el GPS del celular.`, actual);
+    if (direccion === null) return; // cancelo
+
+    if (!direccion.trim()) {
+        const ok = await actualizarEstado((est) => {
+            const mm = est.managers.find(x => x.id === managerId);
+            if (mm) mm.puntoInicio = null;
+        });
+        if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
+        alert(`Listo. "${nombreManager}" ahora usará el GPS del celular para empezar su ruta.`);
+        renderPanelAdmin();
+        return;
+    }
+
+    const coords = await geocodificar(direccion.trim());
+    if (!coords) {
+        alert('No se pudo ubicar esa dirección en el mapa. Revisa que tenga calle, ciudad y estado, e intenta de nuevo.');
+        return;
+    }
+
+    const ok = await actualizarEstado((est) => {
+        const mm = est.managers.find(x => x.id === managerId);
+        if (mm) mm.puntoInicio = { direccion: direccion.trim(), lat: coords.lat, lng: coords.lng };
+    });
+    if (!ok) { alert('No se pudo guardar el punto de inicio, intenta de nuevo.'); return; }
+    alert(`Listo. "${nombreManager}" ahora empezará su ruta siempre desde: ${direccion.trim()}`);
+    renderPanelAdmin();
+}
+
 function abrirModalNuevoManager() {
         const sel = document.getElementById('nuevoManagerSupervisor');
-        // Un manager nuevo todavia no existe, asi que no puede haber ciclos: se puede
-        // elegir como supervisor a cualquiera de los managers ya creados.
-        const opciones = candidatosSupervisorPara(null).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        const opciones = estado.managers.filter(m => m.esOficina).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
         sel.innerHTML = `<option value="">Sin supervisor</option>${opciones}`;
         document.getElementById('nuevoManagerEsOficina').checked = false;
         mostrarModal('modalNuevoManager');
@@ -698,14 +671,6 @@ async function toggleActivo(managerId, valor) {
 }
 
 async function asignarSupervisor(managerId, supervisorId) {
-        // Proteccion contra ciclos: no dejar asignar como supervisor a alguien que ya
-        // esta debajo de este manager (eso haria que se supervisaran mutuamente y la
-        // app entraria en un bucle infinito al calcular equipos).
-        if (supervisorId && (supervisorId === managerId || esDescendienteDe(supervisorId, managerId))) {
-                    alert('No se puede asignar como supervisor a alguien que ya esta debajo de este manager (eso crearia un ciclo). Elegi otra persona.');
-                    renderPanelAdmin();
-                    return;
-        }
         const ok = await actualizarEstado((est) => {
                     const m = est.managers.find(x => x.id === managerId);
                     if (m) m.supervisorId = supervisorId || null;
@@ -738,9 +703,7 @@ function verEquipo(oficinaId, origen) {
         const oficina = estado.managers.find(m => m.id === oficinaId);
         if (!oficina) return;
         document.getElementById('equipoNombreOficina').textContent = oficina.nombre;
-        // subordinadosRecursivos (no solo subManagersDe) para traer a TODOS los que
-        // estan debajo, sin importar cuantos niveles de profundidad tengan.
-        const subs = subordinadosRecursivos(oficinaId);
+        const subs = subManagersDe(oficinaId);
         const idsSubs = subs.map(m => m.id);
         const clientesEquipo = estado.clientes.filter(c => idsSubs.includes(c.managerId));
 
@@ -755,20 +718,16 @@ function verEquipo(oficinaId, origen) {
         document.getElementById('equipoStatsTexto').innerHTML = `<b>Tasa de efectividad:</b> ${efectividadEq != null ? efectividadEq + '%' : 'Sin datos aun'} &nbsp;·&nbsp; <b>Dias activa:</b> ${diasEq} &nbsp;·&nbsp; <b>Clientes/dia:</b> ${ritmoEq.toFixed(1)} &nbsp;·&nbsp; <b>Fin estimado:</b> ${finEq || 'Sin datos aun'}`;
 
         document.getElementById('listaEquipo').innerHTML = subs.length === 0
-            ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes a nadie en tu equipo.</div>`
+            ? `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavia no tienes sub-managers asignados.</div>`
                     : subs.map(m => {
                                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                                     const bloqueado = managersBloqueados.has(m.id);
                                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
-                                    // Si esta persona a su vez tiene su propio equipo debajo, se le agrega un
-                                    // boton "Ver equipo" para poder entrar puntualmente a ver solo esa rama.
-                                    const subEquipoTxt = tieneEquipo(m.id) ? ` - Tiene su propio equipo (${subordinadosRecursivos(m.id).length})` : '';
-                                    const botonVerEquipo = tieneEquipo(m.id) ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'equipo')">Ver su equipo</button>` : '';
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${botonVerEquipo}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${subEquipoTxt}</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
+                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -786,8 +745,6 @@ function volverDeEquipo() {
 let managerCarteraActual = null;
 let cargaCarteraToken = 0;
 let cargaCarteraActiva = false;
-
-async function editarCalendarioManager(managerId, nombre) { const m = estado.managers.find(x => x.id === managerId); const actual = (m && m.calendarioUrl) || ''; const url = prompt('Pega el link del calendario de citas de "' + nombre + '" (el mismo que usas en Quantica360 / GHL):', actual); if (url === null) return; const ok = await actualizarEstado((est) => { const mm = est.managers.find(x => x.id === managerId); if (mm) mm.calendarioUrl = url.trim(); }); if (!ok) { alert('No se pudo guardar el link del calendario, intenta de nuevo.'); return; } renderPanelAdmin(); }
 
 function abrirModalCartera(managerId, nombre) {
         if (managersBloqueados.has(managerId)) { alert('Ya hay una operacion en curso para este manager, espera a que termine.'); return; }
@@ -1130,17 +1087,10 @@ function reproducirAudioBienvenida(manager) {
 // donde sacar el fondo personalizado a aplicar.
 function oficinaDe(manager) {
         if (!manager) return null;
-        // Sube por la cadena de supervisores (por si hay varios niveles) hasta
-        // encontrar a quien tenga marcado "Es oficina". "vistos" evita que un dato
-        // mal asignado (un ciclo) deje esto pensando para siempre.
-        let actual = manager;
-        const vistos = new Set();
-        while (actual) {
-                if (actual.esOficina) return actual;
-                if (vistos.has(actual.id)) return null;
-                vistos.add(actual.id);
-                if (!actual.supervisorId) return null;
-                actual = estado.managers.find(x => x.id === actual.supervisorId) || null;
+        if (manager.esOficina) return manager;
+        if (manager.supervisorId) {
+                    const sup = estado.managers.find(x => x.id === manager.supervisorId);
+                    if (sup && sup.esOficina) return sup;
         }
         return null;
 }
@@ -1178,6 +1128,7 @@ function aplicarFondoPersonalizado(manager) {
         const MARCAS_POR_OFICINA = {
                     '97e4ragu': 'marcaTeamFenix',      // Omar Aliaga -> "TEAM FENIX"
                     '39rv91lt': 'marcaRutaTiburon',     // Carlos Buenaventura -> "LA RUTA DEL TIBURON"
+                    'n7cnwvh0': 'marcaLotusTeam',       // Juliany Marin -> "LOTUS TEAM"
         };
         Object.values(MARCAS_POR_OFICINA).forEach((idElemento) => {
                     const el = document.getElementById(idElemento);
@@ -1574,7 +1525,7 @@ function toggleGrafico3D(btn, contenedorId, managerId, modo) {
         clientes = estado.clientes;
         titulo = 'Todos los managers';
     } else if (modo === 'equipo') {
-        const idsSubs = subordinadosRecursivos(oficinaActivaId).map(m => m.id);
+        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
         clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
         titulo = 'Mi equipo';
     } else {
@@ -1787,7 +1738,7 @@ function toggleCilindro3D(btn, contenedorId, managerId, modo) {
         clientes = estado.clientes;
         titulo = 'Todos los managers';
     } else if (modo === 'equipo') {
-        const idsSubs = subordinadosRecursivos(oficinaActivaId).map(m => m.id);
+        const idsSubs = subManagersDe(oficinaActivaId).map(m => m.id);
         clientes = estado.clientes.filter(c => idsSubs.includes(c.managerId));
         titulo = 'Mi equipo';
     } else {
@@ -1826,7 +1777,7 @@ async function abrirTablero(oficinaId, origen) {
     if (tableroOrigen === 'admin') {
         // Solo el admin puede cambiar de oficina desde el mismo tablero; el manager de
         // oficina siempre ve nada mas la suya, asi que no necesita el selector.
-        const oficinas = estado.managers.filter(m => tieneEquipo(m.id));
+        const oficinas = estado.managers.filter(m => m.esOficina);
         selector.innerHTML = `<option value="">Todos los managers</option>` +
             oficinas.map(o => `<option value="${o.id}" ${o.id === tableroOficinaId ? 'selected' : ''}>${o.nombre}</option>`).join('');
         selector.style.display = '';
@@ -1870,10 +1821,10 @@ function alcanceTablero() {
     let managers, titulo;
     if (tableroOficinaId) {
         const oficina = estado.managers.find(m => m.id === tableroOficinaId);
-        managers = subordinadosRecursivos(tableroOficinaId);
+        managers = subManagersDe(tableroOficinaId);
         titulo = oficina ? oficina.nombre : 'Equipo';
     } else {
-        managers = estado.managers.filter(m => subordinadosRecursivos(m.id).length === 0);
+        managers = estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
         titulo = 'Todos los managers';
     }
     const idsManagers = managers.map(m => m.id);
@@ -2156,7 +2107,7 @@ function insertarGrafico3DEnHoja(wb, hoja, clientes, titulo, opciones) {
         // coincida exactamente con quienes salen en este Excel.
         const listaParaRanking = Array.isArray(opts.ranking)
             ? opts.ranking
-            : estado.managers.filter(m => subordinadosRecursivos(m.id).length === 0);
+            : estado.managers.filter(m => !m.esOficina || subManagersDe(m.id).length === 0);
         const filasRanking = listaParaRanking
             .map(m => {
                         const clientesM = estado.clientes.filter(c => c.managerId === m.id);
@@ -2294,9 +2245,9 @@ async function exportarExcelGeneral() {
 // "Mi equipo".
 async function exportarExcelEquipo(oficinaId) {
       const oficina = estado.managers.find(m => m.id === oficinaId);
-      const managers = subordinadosRecursivos(oficinaId);
+      const managers = subManagersDe(oficinaId);
       if (managers.length === 0) {
-                alert('Todavia no tienes a nadie en tu equipo para exportar.');
+                alert('Todavia no tienes sub-managers en tu equipo para exportar.');
                 return;
       }
       const nombreOficina = oficina ? oficina.nombre : 'Mi equipo';
@@ -2316,7 +2267,7 @@ function prepararSaludo(manager) {
                 ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
                         : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
         const btnEquipo = document.getElementById('btnMiEquipo');
-        if (btnEquipo) btnEquipo.style.display = tieneEquipo(manager.id) ? '' : 'none';
+        if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
         // Los botones para cambiar el fondo (foto/video) solo se ven si este manager ES la
         // oficina (no un sub-manager): asi cada oficina controla su propio fondo, y no hay
         // confusion de "cual sub-manager cambio el fondo de todos".
@@ -2389,6 +2340,42 @@ function obtenerUbicacion() {
     });
 }
 
+// Mejora una ruta ya armada (por "vecino mas cercano") deshaciendo cruces obvios en
+// el camino, sin mover el punto de partida ni agregar/quitar clientes: solo cambia
+// el ORDEN para que la distancia total sea mas corta. Es la tecnica clasica "2-opt":
+// prueba, de a pares, si invertir un tramo del recorrido lo acorta; si lo acorta, lo
+// invierte, y sigue probando hasta que ya no encuentra ninguna mejora (o hasta un
+// tope de vueltas, para no trabar el celular si la cartera es enorme).
+// Usa la misma distancia en linea recta que ya usaba el "vecino mas cercano"
+// (distanciaKm), asi que no cuesta nada extra ni depende de ningun servicio externo.
+function mejorarRutaDosOpt(puntoInicio, ruta) {
+    if (!ruta || ruta.length < 4 || ruta.length > 400) return ruta; // muy corta (no hace falta) o muy grande (evita trabar el celular)
+
+    const puntos = [puntoInicio, ...ruta]; // el punto de partida entra como "parada 0" ficticia
+    const dist = (a, b) => distanciaKm(a.lat, a.lng, b.lat, b.lng);
+    const TOPE_VUELTAS = 20;
+
+    let mejoro = true;
+    let vuelta = 0;
+    while (mejoro && vuelta < TOPE_VUELTAS) {
+          mejoro = false;
+          vuelta++;
+          for (let i = 1; i < puntos.length - 2; i++) {
+                for (let j = i + 1; j < puntos.length - 1; j++) {
+                          const a = puntos[i - 1], b = puntos[i], c = puntos[j], d = puntos[j + 1];
+                          const distanciaActual = dist(a, b) + dist(c, d);
+                          const distanciaNueva = dist(a, c) + dist(b, d);
+                          if (distanciaNueva + 0.01 < distanciaActual) {
+                                        const tramo = puntos.slice(i, j + 1).reverse();
+                                        puntos.splice(i, tramo.length, ...tramo);
+                                        mejoro = true;
+                          }
+                }
+          }
+    }
+    return puntos.slice(1); // se quita la parada 0 ficticia, queda solo la lista de clientes
+}
+
 async function construirRuta(manager) {
     document.getElementById('rutaNombreManager').textContent = manager.nombre;
 
@@ -2404,10 +2391,27 @@ async function construirRuta(manager) {
                                               );
 
   const pendientesSinCoords = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada && (!c.lat || !c.lng));
+
+  // El orden de la ruta SIEMPRE se calcula desde el punto de inicio fijo que Omar le
+  // define al manager (ver definirPuntoInicio()) — nunca desde el GPS del celular. Si
+  // todavia no se lo ha definido, no se arma ninguna ruta (para no calcular un orden
+  // "adivinado" que despues cambiaria cuando Omar si lo defina); se avisa al manager
+  // para que le pida a Omar que se lo configure primero.
+  if (pendientes.length > 0 && (!manager.puntoInicio || manager.puntoInicio.lat == null || manager.puntoInicio.lng == null)) {
+        rutaOrdenada = [...completados];
+        indiceClienteActual = completados.length;
+        document.getElementById('rutaProgreso').textContent = 'Falta tu punto de inicio';
+        document.getElementById('barraProgreso').style.width = '0%';
+        document.getElementById('contenidoRuta').innerHTML = `<div class="tarjeta vacio"><div class="vacio-emoji">📍</div><h3>Falta tu punto de inicio</h3><p class="texto-suave">Tu administrador todavía no te ha definido desde dónde debe empezar tu ruta de hoy. Avísale para que te lo configure (botón "📍 Punto de inicio" en tu perfil) y podrás comenzar.</p></div>`;
+        return;
+  }
+
     let pendientesOrdenados = [];
     if (pendientes.length > 0) {
-          const ubicacion = await obtenerUbicacion();
-          let punto = ubicacion || { lat: pendientes[0].lat, lng: pendientes[0].lng };
+          // Ya sabemos que existe (se valido arriba): la ruta arranca desde ese punto fijo.
+          const punto0 = { lat: manager.puntoInicio.lat, lng: manager.puntoInicio.lng };
+          let punto = punto0;
+          const puntoDePartida = punto0; // se guarda aparte porque "punto" va cambiando abajo
           const restantes = [...pendientes];
 
       while (restantes.length) {
@@ -2420,6 +2424,12 @@ async function construirRuta(manager) {
               pendientesOrdenados.push(elegido);
               punto = { lat: elegido.lat, lng: elegido.lng };
       }
+
+      // Segunda pasada: el "vecino mas cercano" de arriba a veces deja cruces raros
+      // en el camino (ir, venir, volver a ir). Esta pasada "desenreda" esos cruces
+      // sin cambiar el punto de partida ni agregar/quitar clientes — solo reacomoda
+      // el orden para que el recorrido total sea mas corto. Ver mejorarRutaDosOpt().
+      pendientesOrdenados = mejorarRutaDosOpt(puntoDePartida, pendientesOrdenados);
     }
 
   rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
@@ -2484,7 +2494,7 @@ function renderClienteActual() {
   const c = rutaOrdenada[indiceClienteActual];
     const yaCompletado = !!c.horaLlegada;
     const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver', no_atendio: '⚪ No atendió a la cita' };
-    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div><div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${c.direccion?encodeURIComponent(c.direccion):`${c.lat},${c.lng}`}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendió a la cita' : '⚪ No atendió a la cita'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="abrirCalendarioYAgendar()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div>${yaCompletado ? `<button class="btn-texto" style="color:var(--rojo);" onclick="borrarGestionCliente('${c.id}','ruta')">🗑️ Borrar gestión</button>` : ''}<div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}${yaCompletado ? `<button class="btn-texto" onclick="clienteSiguiente()">Siguiente ➡</button>` : '<span></span>'}</div></div>`;
+    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div>${c.codigo ? `<div class="direccion-cliente">🔖 Código: ${c.codigo}</div>` : ''}<div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${c.direccion?encodeURIComponent(c.direccion):`${c.lat},${c.lng}`}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendió a la cita' : '⚪ No atendió a la cita'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div>${yaCompletado ? `<button class="btn-texto" style="color:var(--rojo);" onclick="borrarGestionCliente('${c.id}','ruta')">🗑️ Borrar gestión</button>` : ''}<div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}<button class="btn-texto" onclick="clienteSiguiente()">${yaCompletado ? 'Siguiente ➡' : 'Saltar, ver siguiente ➡'}</button></div></div>`;
 }
 
 function clienteAnterior() {
@@ -2522,10 +2532,6 @@ async function guardarNotas() {
     if (idx !== -1) rutaOrdenada[idx] = actualizado;
     renderClienteActual();
 }
-
-function partirDireccionUS(direccion) { if (!direccion) return { calle: '', ciudad: '', estado: '', zip: '' }; const partes = direccion.split(',').map(p => p.trim()).filter(Boolean); if (partes.length >= 3) { const calle = partes[0]; const ciudad = partes[1]; const resto = partes[2]; const match = resto.match(/^([A-Za-z]{2})\s+(\d{5}(-\d{4})?)/); if (match) { return { calle, ciudad, estado: match[1], zip: match[2] }; } return { calle, ciudad, estado: resto, zip: '' }; } if (partes.length === 2) { return { calle: partes[0], ciudad: partes[1], estado: '', zip: '' }; } return { calle: direccion, ciudad: '', estado: '', zip: '' }; }
-
-function abrirCalendarioYAgendar() { const manager = estado.managers.find(m => m.id === managerActivoId); const c = rutaOrdenada[indiceClienteActual]; if (!manager || !manager.calendarioUrl) { alert('Este manager todavia no tiene un link de calendario configurado. Pidele al administrador que lo agregue en el panel de administrador con el boton Calendario.'); return; } const dir = partirDireccionUS(c.direccion || ''); const params = new URLSearchParams({ full_name: c.nombre || '', address: dir.calle, city: dir.ciudad, state: dir.estado, postal_code: dir.zip, country: 'US' }); window.open(manager.calendarioUrl + '?' + params.toString(), '_blank'); marcarEstatus('cita'); }
 
 function mostrarFormCita() {
     document.getElementById('formCitaWrap').innerHTML = `<div class="form-cita"><div class="fila-2"><div><label>Día</label><input type="date" id="citaFecha" class="input"></div><div><label>Hora</label><input type="time" id="citaHora" class="input"></div></div><div><label>Teléfono</label><input type="tel" id="citaTelefono" class="input" placeholder="Teléfono de contacto"></div><div><label>Observaciones</label><textarea id="citaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas de la cita..."></textarea></div><button class="btn btn-ambar" onclick="marcarEstatus('cita')">Guardar cita y completar</button></div>`;
@@ -2635,7 +2641,7 @@ function irAVistaMapa() {
                           html: `<div class="numero-pin">${i + 1}</div>`,
                           iconSize: [30, 30]
                 });
-                L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b><br>${c.direccion}`);
+                L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b>${c.codigo ? ` <span style="color:#888;">(${c.codigo})</span>` : ''}<br>${c.direccion}`);
         });
 
                  L.polyline(puntos, { color: '#7C5CFF', weight: 3, dashArray: '6 8' }).addTo(mapaLeaflet);
@@ -2678,7 +2684,10 @@ function verMiReporte(managerId, origen) {
                     { valor: 'cita', texto: 'Cita efectiva' },
                     { valor: 'retirado', texto: 'No volver' }
         ];
-        const ordenados = [...clientesM].sort((a, b) => (b.fechaHoraLlegada || '').localeCompare(a.fechaHoraLlegada || ''));
+        // Mismo orden que el mapa y el Excel: el de la ruta (c.ordenRuta), no el de
+        // "gestionado mas reciente primero" que tenia antes. Asi las tres vistas
+        // (mapa, Excel, esta lista) siempre coinciden.
+        const ordenados = ordenarPorRuta(clientesM);
 
         document.getElementById('listaReporteManager').innerHTML = ordenados.map(c => {
                     const fecha = c.fechaHoraLlegada ? formatearFechaHora(c.fechaHoraLlegada) : 'Sin gestionar aun';
@@ -2694,7 +2703,7 @@ function verMiReporte(managerId, origen) {
                                 `<label><input type="radio" name="gestion_${c.id}" ${c.estatus === op.valor ? 'checked' : ''} onclick="seleccionarGestionReporte('${c.id}','${op.valor}',this)"> ${op.texto}</label>`
                     ).join('');
                     const botonBorrar = c.horaLlegada ? `<button class="chip-link" style="background:#FCE4E4; color:#8A1F1F;" onclick="borrarGestionCliente('${c.id}','reporte')">🗑️ Borrar gestión</button>` : '';
-                    return `<div class="fila-manager" style="flex-wrap:wrap; row-gap:10px;"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div><div class="fila-manager-gestion">${radios}${botonBorrar}</div><div id="citaFormReporte_${c.id}" style="width:100%;"></div></div>`;
+                    return `<div class="fila-manager" style="flex-wrap:wrap; row-gap:10px;"><div class="fila-manager-info"><span class="fila-manager-nombre">${c.nombre}${c.codigo ? ` <span style="font-weight:normal; color:#888;">· ${c.codigo}</span>` : ''}</span><span class="fila-manager-meta">📍 ${c.direccion || ''}</span><span class="fila-manager-meta">${etiquetas[c.estatus] || c.estatus} - ${fecha}${detalleCita}</span></div><div class="fila-manager-gestion">${radios}${botonBorrar}</div><div id="citaFormReporte_${c.id}" style="width:100%;"></div></div>`;
         }).join('');
 
         mostrarPantalla('pantallaReporteManager');

@@ -187,7 +187,7 @@ function renderPanelAdmin() {
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="definirPuntoInicio('${m.id}', '${m.nombre.replace(/'/g,"")}')">📍 Punto de inicio</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button><button class="btn-chico btn-violeta" onclick="definirPuntoInicio('${m.id}', '${m.nombre.replace(/'/g,"")}')">📍 Punto de inicio</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
                     return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}${puntoInicioTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
         }).join('');
 }
@@ -597,6 +597,22 @@ async function crearManager() {
         cerrarModal('modalNuevoManager');
         if (!ok) alert('No se pudo guardar el nuevo manager, revisa tu conexion e intenta de nuevo.');
         renderPanelAdmin();
+}
+
+// Deja que Omar (admin) pegue, por cada manager, el link de su calendario de citas
+// de Quantica360/GHL. Ese link se usa despues en abrirCalendarioYAgendar() para abrir
+// el calendario correcto de cada manager con los datos del cliente ya prellenados.
+async function editarCalendarioManager(managerId, nombre) {
+    const m = estado.managers.find(x => x.id === managerId);
+    const actual = (m && m.calendarioUrl) || '';
+    const url = prompt('Pega el link del calendario de citas de "' + nombre + '" (el mismo que usas en Quantica360 / GHL):', actual);
+    if (url === null) return;
+    const ok = await actualizarEstado((est) => {
+        const mm = est.managers.find(x => x.id === managerId);
+        if (mm) mm.calendarioUrl = url.trim();
+    });
+    if (!ok) { alert('No se pudo guardar el link del calendario, intenta de nuevo.'); return; }
+    renderPanelAdmin();
 }
 
 // Deja que Omar (admin) le fije a un manager una direccion desde donde SIEMPRE debe
@@ -2503,7 +2519,7 @@ function renderClienteActual() {
   const c = rutaOrdenada[indiceClienteActual];
     const yaCompletado = !!c.horaLlegada;
     const etiquetas = { activo: '✅ Sigue activa', cita: '🟡 Cita efectiva', retirado: '🔴 No volver', no_atendio: '⚪ No atendió a la cita' };
-    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div>${c.codigo ? `<div class="direccion-cliente">🔖 Código: ${c.codigo}</div>` : ''}<div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${c.direccion?encodeURIComponent(c.direccion):`${c.lat},${c.lng}`}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendió a la cita' : '⚪ No atendió a la cita'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="mostrarFormCita()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div>${yaCompletado ? `<button class="btn-texto" style="color:var(--rojo);" onclick="borrarGestionCliente('${c.id}','ruta')">🗑️ Borrar gestión</button>` : ''}<div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}<button class="btn-texto" onclick="clienteSiguiente()">${yaCompletado ? 'Siguiente ➡' : 'Saltar, ver siguiente ➡'}</button></div></div>`;
+    cont.innerHTML = `<div class="tarjeta-cliente"><span class="numero-visita">${yaCompletado ? `Cliente visitado · ${etiquetas[c.estatus] || ''}` : `Visita ${indiceClienteActual + 1} de ${rutaOrdenada.length}`}</span><div class="nombre-cliente">${c.nombre}</div>${c.codigo ? `<div class="direccion-cliente">🔖 Código: ${c.codigo}</div>` : ''}<div class="direccion-cliente">📍 ${c.direccion}${c.telefono ? ' · 📞 ' + c.telefono : ''}</div>${c.observaciones ? `<div class="direccion-cliente">📝 ${c.observaciones}</div>` : ''}<a class="btn btn-teal" style="display:block; margin-bottom:14px; text-decoration:none;" href="https://www.google.com/maps/dir/?api=1&destination=${c.direccion?encodeURIComponent(c.direccion):`${c.lat},${c.lng}`}" target="_blank">🧭 Ir con navegación</a><div class="opciones-visita"><button class="btn btn-verde" onclick="marcarEstatus('activo')">${yaCompletado ? 'Cambiar a: sigue activa' : 'Sigue activa'}</button><button class="btn btn-coral" onclick="marcarEstatus('no_atendio')">${yaCompletado ? 'Cambiar a: no atendió a la cita' : '⚪ No atendió a la cita'}</button><button class="btn btn-rojo" onclick="confirmarRetiro()">${yaCompletado ? 'Cambiar a: no volver' : 'No volver'}</button><button class="btn btn-ambar" onclick="abrirCalendarioYAgendar()">${yaCompletado ? 'Cambiar a: cita efectiva' : 'Cita efectiva'}</button></div><button class="btn-texto" onclick="toggleNotas()">📝 Notas (teléfono, observaciones)</button><div id="notasWrap"></div><div id="formCitaWrap"></div>${yaCompletado ? `<button class="btn-texto" style="color:var(--rojo);" onclick="borrarGestionCliente('${c.id}','ruta')">🗑️ Borrar gestión</button>` : ''}<div class="fila-2" style="margin-top:14px;">${hayAnterior ? `<button class="btn-texto" onclick="clienteAnterior()">⬅ Anterior</button>` : '<span></span>'}<button class="btn-texto" onclick="clienteSiguiente()">${yaCompletado ? 'Siguiente ➡' : 'Saltar, ver siguiente ➡'}</button></div></div>`;
 }
 
 function clienteAnterior() {
@@ -2542,8 +2558,49 @@ async function guardarNotas() {
     renderClienteActual();
 }
 
-function mostrarFormCita() {
-    document.getElementById('formCitaWrap').innerHTML = `<div class="form-cita"><div class="fila-2"><div><label>Día</label><input type="date" id="citaFecha" class="input"></div><div><label>Hora</label><input type="time" id="citaHora" class="input"></div></div><div><label>Teléfono</label><input type="tel" id="citaTelefono" class="input" placeholder="Teléfono de contacto"></div><div><label>Observaciones</label><textarea id="citaObservaciones" class="textarea" style="min-height:70px;" placeholder="Notas de la cita..."></textarea></div><button class="btn btn-ambar" onclick="marcarEstatus('cita')">Guardar cita y completar</button></div>`;
+// Parte una direccion tipo "Calle, Ciudad, ST 12345" en sus piezas (calle, ciudad,
+// estado, zip) para poder mandarlas por separado al calendario de Quantica360/GHL.
+function partirDireccionUS(direccion) {
+    if (!direccion) return { calle: '', ciudad: '', estado: '', zip: '' };
+    const partes = direccion.split(',').map(p => p.trim()).filter(Boolean);
+    if (partes.length >= 3) {
+        const calle = partes[0];
+        const ciudad = partes[1];
+        const resto = partes[2];
+        const match = resto.match(/^([A-Za-z]{2})\s+(\d{5}(-\d{4})?)/);
+        if (match) {
+            return { calle, ciudad, estado: match[1], zip: match[2] };
+        }
+        return { calle, ciudad, estado: resto, zip: '' };
+    }
+    if (partes.length === 2) {
+        return { calle: partes[0], ciudad: partes[1], estado: '', zip: '' };
+    }
+    return { calle: direccion, ciudad: '', estado: '', zip: '' };
+}
+
+// Boton "Cita efectiva": abre el calendario de citas de Quantica360/GHL del manager
+// (configurado por el admin en editarCalendarioManager) con el nombre y la direccion
+// del cliente ya prellenados, para que el manager solo tenga que elegir dia y hora
+// alli mismo. Luego marca al cliente como "cita" en la app.
+function abrirCalendarioYAgendar() {
+    const manager = estado.managers.find(m => m.id === managerActivoId);
+    const c = rutaOrdenada[indiceClienteActual];
+    if (!manager || !manager.calendarioUrl) {
+        alert('Este manager todavia no tiene un link de calendario configurado. Pidele al administrador que lo agregue en el panel de administrador con el boton Calendario.');
+        return;
+    }
+    const dir = partirDireccionUS(c.direccion || '');
+    const params = new URLSearchParams({
+        full_name: c.nombre || '',
+        address: dir.calle,
+        city: dir.ciudad,
+        state: dir.estado,
+        postal_code: dir.zip,
+        country: 'US'
+    });
+    window.open(manager.calendarioUrl + '?' + params.toString(), '_blank');
+    marcarEstatus('cita');
 }
 
 function confirmarRetiro() {

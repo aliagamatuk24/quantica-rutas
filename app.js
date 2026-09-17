@@ -2702,12 +2702,18 @@ function irAVistaMapa() {
 
                  const conCoords = rutaOrdenada.filter(c => c.lat && c.lng); const puntos = conCoords.map(c => [c.lat, c.lng]);
         conCoords.forEach((c, i) => {
+                // Bolita verde si el cliente ya fue visitado/gestionado hoy (tiene horaLlegada,
+                // igual que en "completados" de construirRuta()); roja si todavia esta pendiente.
+                const visitado = !!c.horaLlegada;
                 const icono = L.divIcon({
                           className: '',
-                          html: `<div class="numero-pin">${i + 1}</div>`,
+                          html: `<div class="numero-pin${visitado ? ' visitado' : ''}">${i + 1}</div>`,
                           iconSize: [30, 30]
                 });
-                L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b>${c.codigo ? ` <span style="color:#888;">(${c.codigo})</span>` : ''}<br>${c.direccion}`);
+                // El boton "Continuar desde aqui" solo cambia cual es tu cliente actual en la
+                // pantalla de ruta (indiceClienteActual) — no toca ninguna gestion ya guardada
+                // ni cambia el orden de nadie, asi que se puede usar libremente sin riesgo.
+                L.marker([c.lat, c.lng], { icon: icono }).addTo(mapaLeaflet).bindPopup(`<b>${c.nombre}</b>${c.codigo ? ` <span style="color:#888;">(${c.codigo})</span>` : ''}<br>${c.direccion}<br><span style="font-weight:600; color:${visitado ? '#22C55E' : '#EF4444'};">${visitado ? '✅ Ya gestionado' : '🔴 Pendiente'}</span><br><button class="btn-texto" style="margin-top:6px;" onclick="continuarDesdeCliente('${c.id}')">➡ Continuar desde aquí</button>`);
         });
 
                  L.polyline(puntos, { color: '#7C5CFF', weight: 3, dashArray: '6 8' }).addTo(mapaLeaflet);
@@ -2716,6 +2722,20 @@ function irAVistaMapa() {
 }
 
 function volverAVistaRuta() { mostrarPantalla('pantallaRuta'); }
+
+// Deja que el manager, viendo el mapa con toda su ruta del dia, elija manualmente
+// desde cual cliente quiere seguir trabajando (por ejemplo si ya lo atendio por su
+// cuenta, o si prefiere seguir un orden distinto en ese momento). Esto SOLO cambia
+// cual es "el cliente actual" en la pantalla de ruta (indiceClienteActual) — no
+// marca a nadie como gestionado, no borra nada y no reordena la ruta guardada, asi
+// que se puede usar sin ningun riesgo ni perjuicio.
+function continuarDesdeCliente(clienteId) {
+    const idx = rutaOrdenada.findIndex(x => x.id === clienteId);
+    if (idx === -1) return;
+    indiceClienteActual = idx;
+    volverAVistaRuta();
+    renderClienteActual();
+}
 
 // ============================================================
 // VISTA MANAGER — MI REPORTE

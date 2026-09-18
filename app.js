@@ -80,9 +80,17 @@ async function cargarEstado() {
           estadoEtag = data._etag || null;
           delete data._etag;
           estado = data;
+          return true;
     } catch (e) {
           console.error("No se pudo cargar el estado", e);
-          estado = { managers: [], clientes: [] };
+          // IMPORTANTE: si esto falla (por ejemplo se corto la señal), NO vaciamos
+          // "estado". Antes se reemplazaba por { managers: [], clientes: [] }, y si
+          // eso pasaba justo dentro de actualizarEstado() se terminaba GUARDANDO esa
+          // version vacia y se borraba toda la informacion real del servidor. Ahora
+          // dejamos "estado" como estaba (los ultimos datos reales que se cargaron
+          // bien) y avisamos con "false" para que quien nos llamo reintente en vez
+          // de guardar con los datos a medias.
+          return false;
     }
 }
 
@@ -107,7 +115,14 @@ async function guardarEstado() {
 async function actualizarEstado(cambiarFn, intentos) {
     const maxIntentos = intentos || 6;
     for (let i = 0; i < maxIntentos; i++) {
-          await cargarEstado();
+          const cargadoBien = await cargarEstado();
+          if (!cargadoBien) {
+                // No se pudo traer lo mas reciente del servidor: NO aplicamos el
+                // cambio ni guardamos nada en este intento (para no arriesgarnos a
+                // guardar con datos viejos o a medias), simplemente reintentamos.
+                await esperar(300 + i * 200);
+                continue;
+          }
           await cambiarFn(estado);
           const ok = await guardarEstado();
           if (ok) {

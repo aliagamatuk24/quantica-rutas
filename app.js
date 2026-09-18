@@ -1068,8 +1068,11 @@ function reproducirAudioBienvenida(manager) {
         audiosBienvenidaEnProgreso.add(manager.id);
 
         const audio = new Audio(oficina.fondoAudioUrl);
+        // Volumen mas bajo que antes, para que suene de fondo sin tapar la voz ni
+        // sobresaltar al cliente (100% sonaba muy fuerte).
+        audio.volume = 0.35;
         // Confirmamos que el audio esta sonando de verdad (no solo que se llamo play(), que
-        // puede quedar pendiente o fallar en silencio) antes de cortarlo a los 8 segundos y
+        // puede quedar pendiente o fallar en silencio) antes de cortarlo a los 4 segundos y
         // de marcarlo como "ya sono", para no bloquear reintentos por error.
         let seEstaReproduciendo = false;
         audio.addEventListener('playing', () => {
@@ -1080,9 +1083,10 @@ function reproducirAudioBienvenida(manager) {
                     document.removeEventListener('click', intentarConGesto);
                     document.removeEventListener('touchstart', intentarConGesto);
                     document.removeEventListener('keydown', intentarConGesto);
-                    // Por si el archivo subido no dura los ~8 segundos esperados, lo cortamos
-                    // igual a los 8 segundos para evitar un sonido de fondo interminable.
-                    setTimeout(() => { audio.pause(); }, 8000);
+                    // Lo cortamos a los 4 segundos (antes eran 8), sin importar cuanto dure
+                    // el archivo subido, para que sea un saludo cortito y no un sonido de
+                    // fondo largo.
+                    setTimeout(() => { audio.pause(); }, 4000);
         });
 
         const intentarConGesto = () => { audio.play().catch(() => {}); };
@@ -2619,29 +2623,56 @@ async function marcarEstatus(tipo) {
     const citaTelefono = tipo === 'cita' ? (document.getElementById('citaTelefono')?.value || '') : undefined;
     const citaObservaciones = tipo === 'cita' ? (document.getElementById('citaObservaciones')?.value || '') : undefined;
 
-const ok = await actualizarEstado((est) => {
-        const clienteReal = est.clientes.find(x => x.id === c.id);
-        clienteReal.estatus = tipo;
-        clienteReal.horaLlegada = horaTexto;
-        clienteReal.fechaHoraLlegada = fechaISO;
-        if (tipo === 'cita') {
+    // Antes, el manager se quedaba esperando en la pantalla hasta que el guardado
+    // en el servidor terminara del todo (varios segundos), y recien ahi pasaba al
+    // siguiente cliente. Ahora avanzamos la pantalla YA MISMO (optimista) y el
+    // guardado real sigue pasando por detras con el mismo mecanismo de siempre
+    // (actualizarEstado, sin tocarlo) — asi que la seguridad de los datos no cambia
+    // en nada, solo deja de sentirse lento. Si el guardado de verdad falla, se
+    // deshace el avance y se avisa, para no perder ni inventar ninguna gestion.
+    const idxRuta = indiceClienteActual;
+    const clienteOriginal = c;
+    const copiaLocal = Object.assign({}, c, { estatus: tipo, horaLlegada: horaTexto, fechaHoraLlegada: fechaISO });
+    if (tipo === 'cita') {
+          copiaLocal.citaFecha = citaFecha;
+          copiaLocal.citaHora = citaHora;
+          copiaLocal.citaTelefono = citaTelefono;
+          copiaLocal.citaObservaciones = citaObservaciones;
+    }
+    rutaOrdenada[idxRuta] = copiaLocal;
+    indiceClienteActual++;
+    renderClienteActual();
+
+    const ok = await actualizarEstado((est) => {
+          const clienteReal = est.clientes.find(x => x.id === c.id);
+          clienteReal.estatus = tipo;
+          clienteReal.horaLlegada = horaTexto;
+          clienteReal.fechaHoraLlegada = fechaISO;
+          if (tipo === 'cita') {
                     clienteReal.citaFecha = citaFecha;
                     clienteReal.citaHora = citaHora;
                     clienteReal.citaTelefono = citaTelefono;
                     clienteReal.citaObservaciones = citaObservaciones;
-        }
-});
-    
+          }
+    });
+
     if (!ok) {
+            // No se pudo guardar de verdad: deshacemos el avance para no perder ni
+            // inventar ninguna gestion, y avisamos para que se intente otra vez.
+            rutaOrdenada[idxRuta] = clienteOriginal;
+            indiceClienteActual = idxRuta;
+            renderClienteActual();
             alert('No se pudo guardar esta gestion. Revisa tu conexion e intenta de nuevo tocando el mismo boton.');
             return;
     }
 
-  const actualizado = estado.clientes.find(x => x.id === c.id);
-    const idx = rutaOrdenada.findIndex(x => x.id === c.id);
-    if (idx !== -1) rutaOrdenada[idx] = actualizado;
-    indiceClienteActual++;
-    renderClienteActual();
+    // Ya quedo guardado de verdad en el servidor. Sincronizamos con la copia real
+    // (por si el servidor agrego algo mas) sin mover al manager de donde ya esta.
+    const actualizado = estado.clientes.find(x => x.id === c.id);
+    if (actualizado) {
+          const idxAhora = rutaOrdenada.findIndex(x => x.id === c.id);
+          if (idxAhora !== -1) rutaOrdenada[idxAhora] = actualizado;
+    }
 }
 
 // Borra la gestion ya puesta a un cliente y lo deja "pendiente" otra vez, como si

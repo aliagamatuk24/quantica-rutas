@@ -2616,7 +2616,13 @@ function abrirCalendarioYAgendar() {
         city: dir.ciudad,
         state: dir.estado,
         postal_code: dir.zip,
-        country: 'US'
+        country: 'US',
+        // Nombre de quien agenda desde esta app. El formulario del calendario
+        // de GHL lo guarda en el campo escondido "Cargado por" (clave de
+        // consulta "cargado_por") y Gestion de Managers lo muestra como
+        // "Fuente" de la cita: asi se distingue una cita conseguida por el
+        // sub-gestor de una que entro directo por los calendarios de Omar.
+        cargado_por: (manager.nombre || '').trim()
     });
     window.open(manager.calendarioUrl + '?' + params.toString(), '_blank');
     marcarEstatus('cita');

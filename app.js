@@ -198,12 +198,14 @@ function renderPanelAdmin() {
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
                     const supervisorTxt = m.supervisorId ? ` - Supervisor: ${(estado.managers.find(x => x.id === m.supervisorId) || {}).nombre || '—'}` : '';
                     const puntoInicioTxt = m.puntoInicio && m.puntoInicio.direccion ? ` · Inicio: ${m.puntoInicio.direccion}` : ' · Inicio: sin definir (usa el GPS del celular)';
+                    const fcAdmin = fechaCargaDe(m.id);
+                    const cargaTxt = fcAdmin ? ` · Cartera cargada: ${formatearSoloFecha(fcAdmin)}` : ' · Todavia no se le cargo cartera';
                     const opcionesOficinas = estado.managers.filter(x => x.esOficina && x.id !== m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
         : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'admin')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button><button class="btn-chico btn-violeta" onclick="definirPuntoInicio('${m.id}', '${m.nombre.replace(/'/g,"")}')">📍 Punto de inicio</button>${m.esOficina ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'admin')">Ver equipo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-admin-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-admin-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
-                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}${puntoInicioTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
+                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-admin-' + m.id)}</span><span class="fila-manager-meta">${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${supervisorTxt}${puntoInicioTxt}${cargaTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinas}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-admin-${m.id}"></div><div id="grafico3d-admin-${m.id}"></div><div id="cilindro3d-admin-${m.id}"></div>`;
         }).join('');
 }
 
@@ -352,6 +354,21 @@ function diasActivaCartera(clientes) {
         const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
         const dias = Math.round((hoy - inicio) / 86400000) + 1;
         return Math.max(1, dias);
+}
+
+// Fecha (la mas antigua) en que se cargo la cartera/ruta que un manager tiene AHORA
+// MISMO. Como "Cargar cartera" siempre reemplaza toda la lista anterior por una lista
+// nueva de una sola vez, todos los clientes actuales de un manager comparten (casi)
+// la misma fechaCarga -- por eso alcanza con tomar la mas antigua de todas. Si despues
+// se le agrego a mano un cliente suelto a esa misma ruta, su fechaCarga seria mas
+// reciente, pero al quedarnos con la MAS ANTIGUA seguimos mostrando la fecha en que se
+// cargo la ruta original, que es la que de verdad importa aca. Devuelve null si el
+// manager todavia no tiene ningun cliente cargado.
+function fechaCargaDe(managerId) {
+        const clientes = estado.clientes.filter(c => c.managerId === managerId);
+        const fechas = clientes.map(c => c.fechaCarga).filter(Boolean);
+        if (fechas.length === 0) return null;
+        return fechas.reduce((a, b) => (a < b ? a : b));
 }
 
 function clientesPorDia(clientes) {
@@ -755,10 +772,12 @@ function verEquipo(oficinaId, origen) {
                                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                                     const bloqueado = managersBloqueados.has(m.id);
                                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
+                                    const fcEquipo = fechaCargaDe(m.id);
+                                    const cargaTxtEquipo = fcEquipo ? ` - Cartera cargada: ${formatearSoloFecha(fcEquipo)}` : ' - Todavia no se le cargo cartera';
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
                                         : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${cargaTxtEquipo}</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');
@@ -2297,10 +2316,12 @@ function prepararSaludo(manager) {
         reproducirAudioBienvenida(manager);
         document.getElementById('saludoNombre').textContent = `¡Hola, ${manager.nombre.split(' ')[0]}!`;
         const pendientes = estado.clientes.filter(c => c.managerId === manager.id && c.estatus !== 'retirado' && !c.horaLlegada);
+        const fcManager = fechaCargaDe(manager.id);
+        const cargaTxtManager = fcManager ? ` (ruta cargada el ${formatearSoloFecha(fcManager)})` : '';
         document.getElementById('saludoResumen').textContent =
                     pendientes.length > 0
-                ? `Esta es tu ruta de hoy: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
-                        : `No tienes clientes pendientes por ahora. Avísale a tu administrador si esperas cartera nueva.`;
+                ? `Esta es tu ruta de hoy${cargaTxtManager}: tienes ${pendientes.length} cliente${pendientes.length === 1 ? '' : 's'} por visitar.`
+                        : `No tienes clientes pendientes por ahora${cargaTxtManager}. Avísale a tu administrador si esperas cartera nueva.`;
         const btnEquipo = document.getElementById('btnMiEquipo');
         if (btnEquipo) btnEquipo.style.display = manager.esOficina ? '' : 'none';
         // Los botones para cambiar el fondo (foto/video) solo se ven si este manager ES la

@@ -58,6 +58,14 @@
   <div class="contenido">
     <div class="tarjeta">
       <div class="tarjeta-header">
+        <h3>Exportar</h3>
+      </div>
+      <p class="texto-suave">Descarga el estatus de todos los clientes de todos tus managers en un solo Excel.</p>
+      <button class="btn btn-coral" onclick="exportarExcelGeneral()">⬇ Descargar Excel general</button>
+    </div>
+
+    <div class="tarjeta">
+      <div class="tarjeta-header">
         <h3>Managers</h3>
         <button class="btn-chico btn-violeta" onclick="abrirModalNuevoManager()">+ Nuevo manager</button>
       </div>
@@ -67,14 +75,6 @@
       <div id="cilindro3dGrupoAdmin"></div>
       <button class="btn-chico btn-violeta" style="margin-bottom:10px;" onclick="abrirTablero(null, 'admin')">📽️ Modo pantalla grande</button>
       <div id="listaManagers" class="lista-managers"></div>
-    </div>
-
-    <div class="tarjeta">
-      <div class="tarjeta-header">
-        <h3>Exportar</h3>
-      </div>
-      <p class="texto-suave">Descarga el estatus de todos los clientes de todos tus managers en un solo Excel.</p>
-      <button class="btn btn-coral" onclick="exportarExcelGeneral()">⬇ Descargar Excel general</button>
     </div>
 
     <div class="tarjeta">

@@ -192,7 +192,15 @@ function renderPanelAdmin() {
                     cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todavía no tienes managers. Crea el primero arriba.</div>`;
                     return;
         }
-        cont.innerHTML = estado.managers.map(m => {
+        // El panel principal ahora solo muestra OFICINAS: managers sin supervisor
+        // asignado (la raiz de cada arbol de jerarquia). Para ver y manejar a sus
+        // subordinados se entra con el boton "Ver equipo" de cada oficina.
+        const raices = estado.managers.filter(m => !m.supervisorId);
+        if (raices.length === 0) {
+                    cont.innerHTML = `<div class="vacio"><div class="vacio-emoji">🧑‍💼</div>Todos los managers tienen un supervisor asignado, así que no hay ninguna oficina (raíz) para mostrar aquí. Revisa los supervisores asignados.</div>`;
+                    return;
+        }
+        cont.innerHTML = raices.map(m => {
                     const clientesM = estado.clientes.filter(c => c.managerId === m.id);
                     const { gestionados, porGestionar, citas, retirados } = contarGestion(clientesM);
                     const link = `${window.location.origin}${window.location.pathname}?manager=${m.id}`;
@@ -205,7 +213,12 @@ function renderPanelAdmin() {
                     // ya excluye a la propia persona y a quienes ya esten debajo suyo (para no
                     // crear un ciclo, por ejemplo A supervisando a B y B supervisando a A).
                     const opcionesOficinas = candidatosSupervisorPara(m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
-                    const equipoTxt = tieneEquipo(m.id) ? ` <span class="chip-link" style="cursor:default;">Equipo: ${subordinadosRecursivos(m.id).length}</span>` : '';
+                    // Para facturar por usuario, cada oficina muestra cuantos subordinados
+                    // tiene en total y cuantos de ellos estan activos (los desactivados no
+                    // deberian cobrarse, pero igual se cuentan para que Omar vea la diferencia).
+                    const subsDeM = subordinadosRecursivos(m.id);
+                    const subsActivosDeM = subsDeM.filter(s => s.activo !== false).length;
+                    const equipoTxt = ` <span class="chip-link" style="cursor:default;">Equipo: ${subsActivosDeM} activo${subsActivosDeM === 1 ? '' : 's'} de ${subsDeM.length} total${subsDeM.length === 1 ? '' : 'es'}</span>`;
                     const bloqueado = managersBloqueados.has(m.id);
                     const acciones = bloqueado
                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
@@ -708,7 +721,7 @@ async function editarCalendarioManager(managerId, nombre) {
         if (mm) mm.calendarioUrl = url.trim();
     });
     if (!ok) { alert('No se pudo guardar el link del calendario, intenta de nuevo.'); return; }
-    renderPanelAdmin();
+    refrescarPantallasManagers();
 }
 
 // Deja que Omar (admin) le fije a un manager una direccion desde donde SIEMPRE debe
@@ -730,7 +743,7 @@ async function definirPuntoInicio(managerId, nombreManager) {
         });
         if (!ok) { alert('No se pudo guardar el cambio, intenta de nuevo.'); return; }
         alert(`Listo. "${nombreManager}" ahora usará el GPS del celular para empezar su ruta.`);
-        renderPanelAdmin();
+        refrescarPantallasManagers();
         return;
     }
 
@@ -746,7 +759,7 @@ async function definirPuntoInicio(managerId, nombreManager) {
     });
     if (!ok) { alert('No se pudo guardar el punto de inicio, intenta de nuevo.'); return; }
     alert(`Listo. "${nombreManager}" ahora empezará su ruta siempre desde: ${direccion.trim()}`);
-    renderPanelAdmin();
+    refrescarPantallasManagers();
 }
 
 function abrirModalNuevoManager() {
@@ -765,7 +778,7 @@ async function toggleEsOficina(managerId, valor) {
                     if (m) m.esOficina = valor;
         });
         if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
-        renderPanelAdmin();
+        refrescarPantallasManagers();
 }
 
 // Activa o desactiva la cuenta de un manager (de oficina o general) sin borrar sus datos.
@@ -781,7 +794,7 @@ async function toggleActivo(managerId, valor) {
                     if (mm) mm.activo = valor;
         });
         if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
-        renderPanelAdmin();
+        refrescarPantallasManagers();
 }
 
 async function asignarSupervisor(managerId, supervisorId) {
@@ -790,7 +803,7 @@ async function asignarSupervisor(managerId, supervisorId) {
         // app entraria en un bucle infinito al calcular equipos).
         if (supervisorId && (supervisorId === managerId || esDescendienteDe(supervisorId, managerId))) {
                     alert('No se puede asignar como supervisor a alguien que ya esta debajo de este manager (eso crearia un ciclo). Elegi otra persona.');
-                    renderPanelAdmin();
+                    refrescarPantallasManagers();
                     return;
         }
         const ok = await actualizarEstado((est) => {
@@ -798,7 +811,7 @@ async function asignarSupervisor(managerId, supervisorId) {
                     if (m) m.supervisorId = supervisorId || null;
         });
         if (!ok) alert('No se pudo guardar el cambio, intenta de nuevo.');
-        renderPanelAdmin();
+        refrescarPantallasManagers();
 }
 
 // Fecha limite manual por manager. La puede poner el admin (desde el panel) o un
@@ -854,10 +867,15 @@ function verEquipo(oficinaId, origen) {
                                     // boton "Ver equipo" para poder entrar puntualmente a ver solo esa rama.
                                     const subEquipoTxt = tieneEquipo(m.id) ? ` - Tiene su propio equipo (${subordinadosRecursivos(m.id).length})` : '';
                                     const botonVerEquipo = tieneEquipo(m.id) ? `<button class="btn-chico btn-violeta" onclick="verEquipo('${m.id}', 'equipo')">Ver su equipo</button>` : '';
+                                    // Mismos controles de administracion que el panel principal (Calendario,
+                                    // Punto de inicio, Fondo/Video/Audio, Activar/Desactivar, Eliminar, Es
+                                    // oficina, Supervisor): se agregan aqui porque el panel principal ahora
+                                    // solo muestra oficinas (raices), y estos subordinados ya no aparecen ahi.
+                                    const opcionesOficinasSub = candidatosSupervisorPara(m.id).map(o => `<option value="${o.id}" ${m.supervisorId === o.id ? 'selected' : ''}>${o.nombre}</option>`).join('');
                                     const acciones = bloqueado
                                         ? `<span class="fila-manager-meta" style="font-style:italic;">Procesando, un momento…</span>`
-                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button>${botonVerEquipo}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button>`;
-                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${cargaTxtEquipo}${subEquipoTxt}</span><span class="fila-manager-meta" style="display:block;margin-top:4px;">${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
+                                        : `<button class="chip-link" onclick="copiarLink('${link}')">Copiar link</button><button class="btn-chico btn-violeta" onclick="verMiReporte('${m.id}', 'equipo')">Reporte</button><button class="btn-chico btn-teal" onclick="abrirModalCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">+ Cartera</button><button class="btn-chico btn-violeta" onclick="editarCalendarioManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Calendario</button><button class="btn-chico btn-violeta" onclick="definirPuntoInicio('${m.id}', '${m.nombre.replace(/'/g,"")}')">📍 Punto de inicio</button>${botonVerEquipo}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🖼️ Fondo</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoVideo('${m.id}', '${m.nombre.replace(/'/g,"")}')">🎬 Video</button>` : ''}${m.esOficina ? `<button class="btn-chico btn-ambar" onclick="abrirModalFondoAudio('${m.id}', '${m.nombre.replace(/'/g,"")}')">🔊 Audio</button>` : ''}<button class="btn-chico btn-ambar" onclick="toggleGrafico3D(this, 'grafico3d-equipo-${m.id}', '${m.id}', 'individual')">📊 Ver estadísticas 3D</button><button class="btn-chico btn-ambar" onclick="toggleCilindro3D(this, 'cilindro3d-equipo-${m.id}', '${m.id}', 'individual')">🎯 Ver cilindro 3D</button><button class="btn-chico ${m.activo === false ? 'btn-verde' : 'btn-rojo'}" onclick="toggleActivo('${m.id}', ${m.activo === false ? 'true' : 'false'})">${m.activo === false ? 'Activar' : 'Desactivar'}</button><button class="btn-chico btn-vaciar" onclick="vaciarCartera('${m.id}', '${m.nombre.replace(/'/g,"")}')">Borrar</button><button class="btn-chico btn-vaciar" onclick="eliminarManager('${m.id}', '${m.nombre.replace(/'/g,"")}')">Eliminar</button>`;
+                                    return `<div class="fila-manager"><div class="dona" style="${donaEstilo(clientesM)}" title="${porGestionar} por gestionar, ${gestionados} gestionados, ${citas} citas, ${retirados} retirados"></div><div class="fila-manager-info"><span class="fila-manager-nombre">${m.nombre}${m.esOficina ? ' <span class="chip-link" style="cursor:default;">Oficina</span>' : ''}${m.activo === false ? ' <span class="chip-link" style="cursor:default;background:#FEE2E2;color:#7A1F1F;">Desactivado</span>' : ''}${semaforoHTML(m, clientesM, 'semaforo-equipo-' + m.id)}</span><span class="fila-manager-meta">${clientesM.length} clientes - ${gestionados} gestionados - ${porGestionar} por gestionar - ${citas} citas - ${retirados} retirados${cargaTxtEquipo}${subEquipoTxt}</span><span class="fila-manager-meta" style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap;"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${m.esOficina ? 'checked' : ''} onchange="toggleEsOficina('${m.id}', this.checked)" ${bloqueado ? 'disabled' : ''}> Es oficina</label><select style="font-size:12px;padding:2px 4px;border-radius:6px;" onchange="asignarSupervisor('${m.id}', this.value)" ${bloqueado ? 'disabled' : ''}><option value="">Sin supervisor</option>${opcionesOficinasSub}</select>${selectorVencimientoHTML(m.id, m.fechaVencimiento, bloqueado)}</span></div><div class="fila-manager-acciones">${acciones}</div></div><div id="semaforo-equipo-${m.id}"></div><div id="grafico3d-equipo-${m.id}"></div><div id="cilindro3d-equipo-${m.id}"></div>`;
                     }).join('');
 
         mostrarPantalla('pantallaEquipo');

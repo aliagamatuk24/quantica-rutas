@@ -2567,39 +2567,89 @@ async function construirRuta(manager) {
         return;
   }
 
+    // IMPORTANTE: el orden de los pendientes NO se recalcula desde cero cada vez que
+    // se entra a la ruta. Antes, cada vez que la app se recargaba (por ejemplo, cuando
+    // el manager toca "Ir con navegacion" para abrir Google Maps y despues vuelve, el
+    // celular puede cerrar la app de fondo para ahorrar memoria y la app arranca de
+    // nuevo desde cero), se volvia a calcular el "vecino mas cercano" desde la ultima
+    // parada, y como ese calculo es sensible al punto de partida, el orden de las
+    // casas que faltaban podia cambiar bastante de una vuelta a otra, dando la
+    // sensacion de que la app "se saltaba" casas (ej. iba en la 5 y de repente
+    // aparecia la 9). Ahora, una vez que a un cliente pendiente ya se le asigno un
+    // numero de orden (c.ordenRuta, guardado en el servidor), ESE orden se reutiliza
+    // siempre - PARA SIEMPRE, no solo por un dia - y nunca se reacomoda solo. Ese
+    // numero de orden solo deja de existir cuando el cliente se borra de verdad
+    // (vaciarCartera, eliminarManager) o cuando se le carga una cartera nueva a ese
+    // manager (cargarCartera siempre reemplaza la lista completa por clientes nuevos
+    // sin numero de orden todavia). Unicamente esos clientes nuevos (o uno agregado a
+    // mano a mitad de ruta) se acomodan con vecino mas cercano y se agregan al final,
+    // sin tocar el orden de lo que ya existia.
     let pendientesOrdenados = [];
     if (pendientes.length > 0) {
-          // El punto de inicio fijo (definirPuntoInicio()) SOLO se usa para arrancar el
-          // dia, cuando el manager todavia no ha gestionado a nadie. En cuanto ya tiene
-          // al menos una visita hecha hoy, seguimos calculando el resto desde la ULTIMA
-          // parada real (no desde el punto de inicio otra vez) — asi, si la app se
-          // recarga a mitad del dia (se bloqueo el celular, se fue la señal, etc.), la
-          // ruta continua desde donde el manager esta parado de verdad en vez de saltar
-          // de vuelta al punto de inicio y desordenar todo lo que le falta.
+          const yaOrdenados = pendientes.filter(c => typeof c.ordenRuta === 'number').sort((a, b) => a.ordenRuta - b.ordenRuta);
+          const sinOrden = pendientes.filter(c => typeof c.ordenRuta !== 'number');
           const ultimoCompletado = completados.length > 0 ? completados[completados.length - 1] : null;
-          const punto0 = (ultimoCompletado && ultimoCompletado.lat != null && ultimoCompletado.lng != null)
-                ? { lat: ultimoCompletado.lat, lng: ultimoCompletado.lng }
-                : { lat: manager.puntoInicio.lat, lng: manager.puntoInicio.lng };
-          let punto = punto0;
-          const puntoDePartida = punto0; // se guarda aparte porque "punto" va cambiando abajo
-          const restantes = [...pendientes];
 
-      while (restantes.length) {
-              let mejorIdx = 0, mejorDist = Infinity;
-              restantes.forEach((c, i) => {
-                        const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
-                        if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
-              });
-              const [elegido] = restantes.splice(mejorIdx, 1);
-              pendientesOrdenados.push(elegido);
-              punto = { lat: elegido.lat, lng: elegido.lng };
-      }
-
-      // Segunda pasada: el "vecino mas cercano" de arriba a veces deja cruces raros
-      // en el camino (ir, venir, volver a ir). Esta pasada "desenreda" esos cruces
-      // sin cambiar el punto de partida ni agregar/quitar clientes — solo reacomoda
-      // el orden para que el recorrido total sea mas corto. Ver mejorarRutaDosOpt().
-      pendientesOrdenados = mejorarRutaDosOpt(puntoDePartida, pendientesOrdenados);
+          if (yaOrdenados.length === 0) {
+                // Primera vez que se calcula la ruta de este cliente (cartera recien
+                // cargada, o datos viejos de antes de este cambio que todavia no tienen
+                // ordenRuta): se calcula TODO desde cero con vecino mas cercano +
+                // 2-opt, empezando desde la ultima visita real si ya hubo alguna, o si no
+                // desde el punto de inicio fijo que definio el administrador.
+                const punto0 = (ultimoCompletado && ultimoCompletado.lat != null && ultimoCompletado.lng != null)
+                        ? { lat: ultimoCompletado.lat, lng: ultimoCompletado.lng }
+                        : { lat: manager.puntoInicio.lat, lng: manager.puntoInicio.lng };
+                let punto = punto0;
+                const puntoDePartida = punto0; // se guarda aparte porque "punto" va cambiando abajo
+                const restantes = [...sinOrden];
+                while (restantes.length) {
+                        let mejorIdx = 0, mejorDist = Infinity;
+                        restantes.forEach((c, i) => {
+                                const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
+                                if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
+                        });
+                        const [elegido] = restantes.splice(mejorIdx, 1);
+                        pendientesOrdenados.push(elegido);
+                        punto = { lat: elegido.lat, lng: elegido.lng };
+                }
+                // Segunda pasada: el "vecino mas cercano" de arriba a veces deja cruces raros
+                // en el camino (ir, venir, volver a ir). Esta pasada "desenreda" esos cruces
+                // sin cambiar el punto de partida ni agregar/quitar clientes, solo reacomoda
+                // el orden para que el recorrido total sea mas corto. Ver mejorarRutaDosOpt().
+                pendientesOrdenados = mejorarRutaDosOpt(puntoDePartida, pendientesOrdenados);
+          } else if (sinOrden.length === 0) {
+                // Ya se habia calculado el orden antes (sin importar si fue hoy, ayer o hace
+                // una semana - el orden queda fijo hasta que se termine la ruta, se borre el
+                // cliente o se cargue una cartera nueva): se reusa EXACTAMENTE el mismo orden
+                // guardado en cada cliente (c.ordenRuta), sin recalcular nada, para que nunca
+                // se le reordenen las casas que le faltan.
+                pendientesOrdenados = yaOrdenados;
+          } else {
+                // Ya habia un orden calculado, pero aparecieron clientes nuevos sin orden
+                // todavia (cartera adicional, o un cliente agregado a mano): los que YA
+                // tenian orden se dejan exactamente como estaban, y los nuevos se acomodan
+                // con vecino mas cercano empezando desde el ultimo punto de la secuencia ya
+                // ordenada, agregandose al final sin mover nada de lo que ya existia.
+                const ultimoYaOrdenado = yaOrdenados[yaOrdenados.length - 1];
+                let punto = (ultimoYaOrdenado.lat != null && ultimoYaOrdenado.lng != null)
+                        ? { lat: ultimoYaOrdenado.lat, lng: ultimoYaOrdenado.lng }
+                        : (ultimoCompletado && ultimoCompletado.lat != null
+                                ? { lat: ultimoCompletado.lat, lng: ultimoCompletado.lng }
+                                : { lat: manager.puntoInicio.lat, lng: manager.puntoInicio.lng });
+                const restantes = [...sinOrden];
+                const nuevosOrdenados = [];
+                while (restantes.length) {
+                        let mejorIdx = 0, mejorDist = Infinity;
+                        restantes.forEach((c, i) => {
+                                const d = distanciaKm(punto.lat, punto.lng, c.lat, c.lng);
+                                if (d < mejorDist) { mejorDist = d; mejorIdx = i; }
+                        });
+                        const [elegido] = restantes.splice(mejorIdx, 1);
+                        nuevosOrdenados.push(elegido);
+                        punto = { lat: elegido.lat, lng: elegido.lng };
+                }
+                pendientesOrdenados = [...yaOrdenados, ...nuevosOrdenados];
+          }
     }
 
   rutaOrdenada = [...completados, ...pendientesOrdenados, ...pendientesSinCoords];
